@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โชคดีล็อตเตอรี่ออนไลน์</title>
+    <!-- นำเข้า Tailwind CSS สำหรับการจัดหน้าจอที่สวยงามและรองรับมือถือ -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- นำเข้า LINE LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: 'Chakra Petch', sans-serif; }
+        .ticket-card { background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%); }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-100 min-h-screen pb-10">
+
+    <!-- ส่วนหัวของแอป (Header) -->
+    <header class="bg-gradient-to-r from-red-600 to-darkred-800 text-white p-4 shadow-md text-center sticky top-0 z-50">
+        <h1 class="text-xl font-bold tracking-wide">🔴 โชคดีล็อตเตอรี่</h1>
+        <p class="text-xs opacity-90">ระบบซื้อ-ขายสลากอัตโนมัติ 24 ชั่วโมง</p>
+    </header>
+
+    <div class="max-w-md mx-auto px-4 mt-4">
+        
+        <!-- 1. หน้าจอโหลดระบบ (Loading Screen) -->
+        <div id="loadingView" class="text-center py-20">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
+            <p class="mt-4 text-gray-600">กำลังเชื่อมต่อระบบ LINE...</p>
+        </div>
+
+        <!-- 2. หน้าจอลงทะเบียนลูกค้าใหม่ (Register Form) -->
+        <div id="registerView" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 text-center text-red-600">📝 ลงทะเบียนผู้ซื้อครั้งแรก</h2>
+            <p class="text-xs text-gray-500 mb-4 text-center">*ข้อมูลนี้ใช้สำหรับส่งสลากใบจริงและโอนเงินรางวัลเมื่อท่านถูกรางวัลเท่านั้น</p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">ชื่อ - นามสกุล (ตรงกับบัญชีธนาคาร)</label>
+                    <input type="text" id="regName" class="w-full mt-1 p-2.5 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">เบอร์โทรศัพท์ติดต่อ</label>
+                    <input type="tel" id="regPhone" class="w-full mt-1 p-2.5 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none" placeholder="08XXXXXXXX">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">ที่อยู่จัดส่ง (กรณีรับใบจริง)</label>
+                    <textarea id="regAddress" rows="3" class="w-full mt-1 p-2.5 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none" placeholder="บ้านเลขที่, ถนน, ตำบล, อำเภอ, จังหวัด..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">ธนาคารรับเงินรางวัล</label>
+                        <select id="regBank" class="w-full mt-1 p-2.5 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none">
+                            <option value="กสิกรไทย">กสิกรไทย</option>
+                            <option value="ไทยพาณิชย์">ไทยพาณิชย์</option>
+                            <option value="กรุงไทย">กรุงไทย</option>
+                            <option value="กรุงเทพ">กรุงเทพ</option>
+                            <option value="ออมสิน">ออมสิน</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700">เลขบัญชีธนาคาร</label>
+                        <input type="text" id="regAccount" class="w-full mt-1 p-2.5 border rounded-xl focus:ring-2 focus:ring-red-500 outline-none" placeholder="XXX-X-XXXXX-X">
+                    </div>
+                </div>
+                <button onclick="submitRegister()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition duration-200 mt-2">
+                    เข้าสู่ระบบค้นหาเลขเด็ด
+                </button>
+            </div>
+        </div>
+
+        <!-- 3. หน้าจอหลัก: ค้นหาและเลือกซื้อลอตเตอรี่ (Main Store View) -->
+        <div id="storeView" class="hidden space-y-4">
+            <!-- กล่องค้นหาเลข -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <label class="block text-sm font-bold text-gray-700 mb-2">🔍 ค้นหาเลขเด็ดของคุณ</label>
+                <div class="flex gap-2">
+                    <input type="number" id="searchQuery" class="flex-1 p-3 border rounded-xl text-center text-xl font-bold tracking-widest focus:ring-2 focus:ring-red-500 outline-none" placeholder="พิมพ์เลขท้าย 2 ตัว หรือ 3 ตัว">
+                    <button onclick="fetchTickets()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold px-6 rounded-xl transition">ค้นหา</button>
+                </div>
+            </div>
+
+            <!-- รายการสลากที่ค้นเจอ -->
+            <div>
+                <h3 class="text-sm font-bold text-gray-500 mb-2">รายการสลากที่มีในสต็อก</h3>
+                <div id="ticketContainer" class="grid grid-cols-1 gap-3">
+                    <!-- โค้ด JavaScript จะเอาสลากมาแสดงตรงนี้ -->
+                </div>
+            </div>
+            
+            <!-- ตะกร้าสินค้าและการชำระเงิน (จะแสดงเมื่อมีการเลือกเลข) -->
+            <div id="cartBox" class="hidden bg-slate-900 text-white p-5 rounded-2xl shadow-xl fixed bottom-4 left-4 right-4 max-w-md mx-auto z-50">
+                <div class="flex justify-between items-center mb-3">
+                    <div>
+                        <p class="text-xs opacity-70">เลือกไว้ทั้งหมด</p>
+                        <p class="text-lg font-bold"><span id="cartCount">0</span> ใบ | ยอดรวม: <span id="cartTotal">0</span> บาท</p>
+                    </div>
+                    <div class="text-right">
+                        <label class="block text-xs opacity-70 mb-1">รูปแบบการรับสลาก</label>
+                        <select id="shippingType" onchange="updateCartTotal()" class="bg-slate-800 text-white text-xs p-1.5 rounded-lg border border-slate-700 outline-none">
+                            <option value="ฝากร้าน">ฝากร้านตรวจ (ฟรี)</option>
+                            <option value="ส่งใบจริง">ส่งใบจริง (+40 บาท)</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="checkoutOrder()" class="w-full bg-green-500 hover:bg-green-600 text-slate-900 font-extrabold py-3 rounded-xl text-center transition">
+                    ยืนยันคำสั่งซื้อและรับ QR Code
+                </button>
+            </div>
+        </div>
+
+        <!-- 4. หน้าจอแสดงผล QR Code จ่ายเงิน (Payment View) -->
+        <div id="paymentView" class="hidden bg-white p-6 rounded-2xl shadow-md border text-center space-y-4">
+            <div class="bg-green-50 text-green-700 p-3 rounded-xl font-bold text-sm">
+                🎉 จองล็อกเลขสำเร็จ! กรุณาโอนเงินภายใน 10 นาที
+            </div>
+            <p class="text-xs text-gray-500">ออเดอร์หมายเลข: <span id="displayOrderId" class="font-bold text-gray-700"></span></p>
+            <h3 class="text-xl font-bold text-gray-800">ยอดเงินโอนสุทธิ: <span id="displayFinalAmount" class="text-red-600 font-extrabold text-2xl"></span> บาท</h3>
+            <p class="text-xs text-amber-600 font-semibold">*กรุณาโอนให้ตรงเศษสตางค์เป๊ะๆ เพื่อให้ระบบตัดยอดขายทันที</p>
+            
+            <!-- รูปภาพ QR Code PromptPay จาก API -->
+            <div class="bg-slate-50 p-4 rounded-2xl inline-block border">
+                <img id="qrCodeImg" src="" alt="PromptPay QR Code" class="mx-auto max-w-[220px]">
+            </div>
+            
+            <div class="text-sm text-gray-600 space-y-1 bg-slate-50 p-3 rounded-xl text-left">
+                <p>💡 <b>ขั้นตอนหลังจากนี้:</b></p>
+                <p>1. กดบันทึกภาพ QR Code ด้านบนลงมือถือ</p>
+                <p>2. เปิดแอปธนาคารของท่านไปสแกนจ่ายเงิน</p>
+                <p>3. <b>ส่งรูปสลิปเข้ามาในห้องแชท LINE OA นี้</b> เพื่อรับหลักฐานรูปใบจริง</p>
+            </div>
+            <button onclick="liff.closeWindow()" class="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl text-sm">
+                เสร็จสิ้น (ปิดหน้าต่างนี้)
+            </button>
+        </div>
+
+    </div>
+
+    <!-- ==================== [ ส่วนควบคุมคำสั่งทำงาน JavaScript ] ==================== -->
+    <script>
+        // 🚨 สำคัญ: นำ URL เว็บแอปที่ได้จากการ Deploy Google Apps Script ตัวปรับปรุงใหม่มาวางตรงนี้
+        const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbwYKn5Tha-ya849Op_u1RdGz4ZQ2K3dZQMford4SSNtQYOgMFU9_pppeEjwqUDVuCts6A/exec"; 
+        
+        let userLineId = "";
+        let selectedTickets = [];
+
+        // เริ่มต้นระบบ LINE LIFFเมื่อเปิดหน้าจอ
+        async function initLiff() {
+            try {
+                // เปลี่ยนรหัส LIFF ID ตรงนี้ให้ตรงกับใน LINE Developers Console ของคุณ
+                await liff.init({ liffId: "ใส่_LIFF_ID_ของคุณตรงนี้" });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                } else {
+                    const profile = await liff.getProfile();
+                    userLineId = profile.userId;
+                    
+                    // เมื่อได้ LINE ID แล้ว ให้ดึงข้อมูลสลากทั้งหมดมาแสดงเริ่มต้นทันที
+                    document.getElementById('loadingView').classList.add('hidden');
+                    document.getElementById('storeView').classList.remove('hidden');
+                    fetchTickets();
+                }
+            } catch (error) {
+                console.error("LIFF Initialization failed", error);
+                alert("ระบบขัดข้องกรุณาเปิดใหม่อีกครั้งในแอป LINE");
+            }
+        }
+        window.onload = initLiff;
+
+        // ฟังก์ชันเรียกคลังสลากจากหลังบ้าน (Google Sheets แผ่นงาน Stock)
+        async function fetchTickets() {
+            const query = document.getElementById('searchQuery').value;
+            const container = document.getElementById('ticketContainer');
+            container.innerHTML = '<p class="text-center text-gray-400 py-6 text-sm">กำลังค้นหาเลขในคลัง...</p>';
+            
+            try {
+                const response = await fetch(`${BACKEND_API_URL}?action=search&q=${query}`);
+                const tickets = await response.json();
+                
+                container.innerHTML = '';
+                if(tickets.length === 0) {
+                    container.innerHTML = '<p class="text-center text-amber-600 py-6 text-sm bg-amber-50 rounded-xl">❌ ขออภัย! ไม่มีเลขนี้ในคลัง หรือเลขถูกซื้อไปแล้ว</p>';
+                    return;
+                }
+                
+                tickets.forEach(t => {
+                    const isSelected = selectedTickets.includes(t.ticketId);
+                    const card = document.createElement('div');
+                    card.className = `ticket-card p-4 rounded-2xl border flex justify-between items-center shadow-sm transition ${isSelected ? 'border-red-500 bg-red-50' : 'border-gray-200'}`;
+                    card.innerHTML = `
+                        <div>
+                            <div class="text-2xl font-black tracking-widest text-slate-800">${t.ticketId}</div>
+                            <div class="text-xs text-gray-500 mt-1">งวด: ${t.drawDate.split('T')[0]} | ชุด: ${t.setNo}</div>
+                            <div class="text-sm font-bold text-red-600 mt-0.5">ราคา 80.-</div>
+                        </div>
+                        <button onclick="toggleSelectTicket('${t.ticketId}')" class="px-4 py-2 rounded-xl text-xs font-bold transition ${isSelected ? 'bg-red-500 text-white' : 'bg-slate-800 text-white hover:bg-slate-900'}">
+                            ${isSelected ? 'ยกเลิก' : 'เลือกซื้อ'}
+                        </button>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (e) {
+                container.innerHTML = '<p class="text-center text-red-500 py-6 text-sm">เกิดข้อผิดพลาดในการโหลดข้อมูลสต็อก</p>';
+            }
+        }
+
+        // เลือก/ยกเลิก สลากใส่ตะกร้า
+        function toggleSelectTicket(ticketId) {
+            if (selectedTickets.includes(ticketId)) {
+                selectedTickets = selectedTickets.filter(id => id !== ticketId);
+            } else {
+                selectedTickets.push(ticketId);
+            }
+            updateCartTotal();
+            fetchTickets(); // อัปเดตสถานะปุ่มและสีการเลือกบนหน้าจอ
+        }
+
+        // อัปเดตยอดรวมในตะกร้า
+        function updateCartTotal() {
+            const cartBox = document.getElementById('cartBox');
+            if (selectedTickets.length === 0) {
+                cartBox.classList.add('hidden');
+                return;
+            }
+            cartBox.classList.remove('hidden');
+            
+            const shippingType = document.getElementById('shippingType').value;
+            const shippingFee = (shippingType === "ส่งใบจริง") ? 40 : 0;
+            const ticketTotal = selectedTickets.length * 80;
+            
+            document.getElementById('cartCount').innerText = selectedTickets.length;
+            document.getElementById('cartTotal').innerText = ticketTotal + shippingFee;
+        }
+
+        // กดปุ่มยืนยันการซื้อ (เช็คเงื่อนไขและส่งข้อมูลไปหลังบ้านเพื่อสร้างออเดอร์)
+        async function checkoutOrder() {
+            const shippingType = document.getElementById('shippingType').value;
+            
+            // ปิดหน้าจอร้านค้าชั่วคราว แสดงหน้าโหลด
+            document.getElementById('storeView').classList.add('hidden');
+            document.getElementById('loadingView').classList.remove('hidden');
+            
+            const orderPayload = {
+                action: "createOrder",
+                data: {
+                    lineUserId: userLineId,
+                    tickets: selectedTickets,
+                    shippingType: shippingType
+                }
+            };
+            
+            try {
+                const response = await fetch(BACKEND_API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(orderPayload)
+                });
+                const result = await response.json();
+                
+                if (result.status === "success") {
+                    // นำข้อมูลออเดอร์มาโชว์ที่หน้าจ่ายเงิน
+                    document.getElementById('displayOrderId').innerText = result.orderId;
+                    document.getElementById('displayFinalAmount').innerText = result.finalAmount;
+                    document.getElementById('qrCodeImg').src = result.qrCodeImgUrl;
+                    
+                    document.getElementById('loadingView').classList.add('hidden');
+                    document.getElementById('paymentView').classList.remove('hidden');
+                } else {
+                    alert("ทำรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+                    location.reload();
+                }
+            } catch (e) {
+                alert("การเชื่อมต่อเซิร์ฟเวอร์ขัดข้อง");
+                location.reload();
+            }
+        }
+
+        // ฟังก์ชันระบบลงทะเบียนสมาชิกลูกค้าใหม่ (เปิดไว้รองรับการเรียกใช้เพิ่มเติม)
+        async function submitRegister() {
+            const fullName = document.getElementById('regName').value;
+            const phone = document.getElementById('regPhone').value;
+            const address = document.getElementById('regAddress').value;
+            const bankName = document.getElementById('regBank').value;
+            const bankAccount = document.getElementById('regAccount').value;
+            
+            if(!fullName || !phone || !address || !bankAccount) {
+                alert("กรุณากรอกข้อมูลส่วนตัวให้ครบถ้วนทุกช่องครับ");
+                return;
+            }
+            
+            document.getElementById('registerView').classList.add('hidden');
+            document.getElementById('loadingView').classList.remove('hidden');
+            
+            const regPayload = {
+                action: "saveProfile",
+                data: {
+                    lineUserId: userLineId,
+                    fullName: fullName,
+                    phone: phone,
+                    address: address,
+                    bankName: bankName,
+                    bankAccount: bankAccount
+                }
+            };
+            
+            const response = await fetch(BACKEND_API_URL, { method: 'POST', body: JSON.stringify(regPayload) });
+            const result = await response.json();
+            
+            if(result.status === "success") {
+                document.getElementById('loadingView').classList.add('hidden');
+                document.getElementById('storeView').classList.remove('hidden');
+                fetchTickets();
+            }
+        }
+    </script>
+</body>
+</html>
