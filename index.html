@@ -54,8 +54,8 @@
     #qrContainer img { width: 220px; height: 220px; border: 1px solid #ccc; padding: 5px; background: #fff; }
     .status-msg { text-align: center; font-size: 13px; color: #666; margin-bottom: 10px; background: #e9ecef; padding: 6px; border-radius: 4px; }
     
-    /* ⏱️ สไตล์กล่องแจ้งเวลานับถอยหลัง */
     .timer-box { font-size: 18px; font-weight: bold; color: #d9534f; margin-top: 15px; background-color: #ffeeba; padding: 10px; border-radius: 8px; border: 1px solid #ffdf7e; }
+    .alert-box { background-color: #ffe6e6; color: #cc0000; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ff9999; font-size: 14px; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -96,12 +96,19 @@
 
       <div id="qrContainer">
         <h3 style="color: #28a745;">🎉 สร้างใบสั่งซื้อสำเร็จ!</h3>
-        <p style="color: #d9534f; font-weight: bold; font-size: 18px;">กรุณาโอนเงินยอดเป๊ะ ๆ : <span id="finalPriceText">0.00</span> บาท</p>
+        
+        <div class="alert-box">
+          <i class="fa-solid fa-triangle-exclamation"></i> <b>สำคัญมาก!</b> กรุณาโอนเงินให้ <u>ตรงกับยอดที่ระบุเป๊ะๆ (รวมเศษสตางค์)</u> หากโอนปัดเศษ ระบบบอทจะไม่อนุมัติอัตโนมัติครับ
+        </div>
+
+        <p style="color: #d9534f; font-weight: bold; font-size: 20px;">ยอดที่ต้องโอน: <span id="finalPriceText">0.00</span> บาท</p>
         
         <div id="qrImageSection">
           <img id="payQr" src="" alt="PromptPay QR">
           <div class="timer-box">⏳ กรุณาชำระเงินภายใน: <span id="timerDisplay">10:00</span></div>
-          <p style="font-weight: bold; margin-top: 10px; font-size: 14px;">💡 โอนเสร็จส่งรูปสลิปเข้าแชท LINE ร้านได้เลย บอทจะตรวจและส่งรูปหวยใบจริงกลับให้ครับ!</p>
+          <p style="font-weight: bold; margin-top: 10px; font-size: 14px; color: #0056b3;">
+            💡 โอนเสร็จแล้วให้กด ( X ) ปิดหน้านี้ <br>และส่งรูปสลิปเข้าแชท LINE ร้านได้เลยครับ!
+          </p>
         </div>
         
         <div id="expiredSection" style="display: none;">
@@ -137,13 +144,16 @@
   </div>
 
 <script>
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyCXiOm2FVNcyM6zxwglKb8YPaRwUXoqr4ERyk_cc7nfKT9H2CLolPKmlOAtClsvwzWMw/exec"; 
+  // ==========================================
+  // ⚠️ อย่าลืมแก้ BACKEND_URL และ LIFF_ID ให้เป็นของคุณเอง
+  // ==========================================
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbycbqHWudvvnpIiho4ZZcfm3zizFl26JnOAyWd_c5gLmYksbnqTVz56Fg8k9YwOYUhIBA/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
   let cart = []; 
   let rawTicketsData = []; 
-  let countdownInterval; // ตัวแปรสำหรับนาฬิกานับถอยหลัง
+  let countdownInterval; 
 
   async function startLiff() {
     try {
@@ -352,9 +362,8 @@
     document.getElementById("estPrice").innerText = price;
   }
 
-  // ⏱️ ฟังก์ชันสั่งรันนาฬิกานับถอยหลัง
   function startCountdown() {
-    let timeLeft = 10 * 60; // 10 นาที (ปรับค่าตรงนี้ได้ถ้าต้องการเปลี่ยนเวลา)
+    let timeLeft = 10 * 60; 
     const timerDisplay = document.getElementById("timerDisplay");
     
     clearInterval(countdownInterval);
@@ -368,7 +377,6 @@
       
       if (timeLeft <= 0) {
         clearInterval(countdownInterval);
-        // เมื่อเวลาเหลือ 0 จะซ่อน QR Code แล้วโชว์หน้าหมดเวลาแทน
         document.getElementById("qrImageSection").style.display = "none";
         document.getElementById("expiredSection").style.display = "block";
       }
@@ -392,15 +400,23 @@
       const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify(postData) });
       const result = await response.json();
       
+      // 🔥 [อัปเกรด] ดักจับ Error กรณีที่มีคนซื้อตัดหน้า
       if(result.status === "success") {
         document.getElementById("summaryArea").style.display = "none";
         document.getElementById("ticketsArea").style.display = "none";
         
-        // โชว์หน้า QR Code พร้อมเริ่มนับเวลาถอยหลัง 10 นาทีทันที
         document.getElementById("qrContainer").style.display = "block";
         document.getElementById("finalPriceText").innerText = result.finalAmount;
         document.getElementById("payQr").src = result.qrCodeImgUrl;
         startCountdown(); 
+      } else if (result.status === "error") {
+        // หากสลากโดนแย่งซื้อ จะแจ้งเตือน ล้างตะกร้าบางส่วน และโหลดแผงใหม่
+        alert(result.message);
+        btnOrder.innerText = originalText;
+        btnOrder.disabled = false;
+        cart = []; // รีเซ็ตตะกร้าเพื่อความชัวร์ หรืออาจจะกรองแค่ใบที่มีปัญหาก็ได้
+        updateCartUI();
+        doSearch(); // รีเฟรชแผงหวยล่าสุด
       } else {
         alert("❌ เกิดข้อผิดพลาดในการสร้างใบสั่งซื้อ กรุณาลองใหม่ครับ");
         btnOrder.innerText = originalText;
