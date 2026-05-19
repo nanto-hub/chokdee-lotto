@@ -163,10 +163,7 @@
   </div>
 
 <script>
-  // ==========================================
-  // ⚠️ อย่าลืมแก้ BACKEND_URL และ LIFF_ID ให้เป็นของคุณเอง
-  // ==========================================
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzmPQG3o7_zEh_5pXzSueB8AncNgK6n8CHgbXdEBZDu-EqAhiRSgeoYFUzb6PWqxJT39w/exec"; 
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzE2EUm39LJme9Sv6N4qAakYVITGSjzvPuiS1X2e9X6aC432rbZgBkpoph19j8DoN7zCw/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
@@ -186,7 +183,8 @@
       document.getElementById("lineUserId").value = myLineId;
       document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
       
-      const hasPendingOrder = checkActiveOrder();
+      // รอให้ฟังก์ชันตรวจสถานะทำงานเสร็จก่อน
+      const hasPendingOrder = await checkActiveOrder(); 
       
       if (!hasPendingOrder) {
         doSearch(); 
@@ -198,7 +196,8 @@
     }
   }
 
-  function checkActiveOrder() {
+  // ปรับให้เป็น async เพื่อเรียก API ไปถามหลังบ้าน
+  async function checkActiveOrder() {
     const orderStr = localStorage.getItem('chokdee_active_order');
     if (orderStr) {
       const activeOrder = JSON.parse(orderStr);
@@ -206,7 +205,26 @@
       const timeLeft = Math.floor((activeOrder.expireTime - now) / 1000);
 
       if (timeLeft > 0) {
-        alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินก่อนทำรายการใหม่ครับ");
+        document.getElementById("status").innerText = "⏳ กำลังตรวจสอบสถานะการโอนเงินล่าสุดของคุณ...";
+        
+        try {
+          // ยิง API ไปถามหลังบ้านว่าจ่ายเงินไปหรือยัง
+          const noCache = Date.now();
+          const response = await fetch(`${BACKEND_URL}?action=checkPendingOrder&lineUserId=${myLineId}&_t=${noCache}`);
+          const data = await response.json();
+          
+          if (data.status === "success" && data.hasPending === false) {
+            // 🎉 ระบบพบว่าจ่ายเงินแล้ว หรือถูกยกเลิกไปแล้ว! ให้ล้างค่าแล้วให้ซื้อต่อได้เลย
+            localStorage.removeItem('chokdee_active_order');
+            document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
+            return false; 
+          }
+        } catch(e) {
+          console.error("เช็คสถานะออเดอร์ค้างล้มเหลว:", e);
+        }
+
+        // กรณีที่ถามแล้ว ยังมีสถานะ "รอชำระเงิน" ค้างอยู่จริงๆ 
+        alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินก่อนทำรายการใหม่ครับ\n(หากโอนและส่งสลิปแล้ว โปรดรอระบบประมวลผลสักครู่)");
         document.getElementById("searchAreaTop").style.display = "none";
         document.getElementById("ticketsArea").style.display = "none";
         document.getElementById("summaryArea").style.display = "none";
@@ -242,7 +260,7 @@
       const result = await response.json();
       
       document.getElementById("lottoSection").style.display = "none";
-      document.getElementById("myTicketsSection").style.display = "none"; // ปิดหน้าสลาก
+      document.getElementById("myTicketsSection").style.display = "none"; 
       document.getElementById("profileSection").style.display = "block";
       document.getElementById("titleText").innerText = "👤 ข้อมูลส่วนตัวของคุณ";
       
