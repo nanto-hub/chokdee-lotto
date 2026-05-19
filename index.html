@@ -24,11 +24,16 @@
     .total-stock-count span { color: #d9534f; font-weight: bold; }
 
     .ticket-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .ticket-item { border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #fafafa; text-align: center; }
+    .ticket-item { border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #fafafa; text-align: center; position: relative; }
     .ticket-num { font-size: 22px; font-weight: bold; color: #333; }
     .ticket-info { font-size: 12px; color: #777; margin: 5px 0; }
-    .btn-buy { width: 100%; padding: 8px; background: #0275d8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     
+    /* 🏷️ ป้ายบอกจำนวนใบสีส้มเด่นชัด บนตัวการ์ดหวย */
+    .ticket-qty-badge { display: inline-block; background-color: #f0ad4e; color: white; padding: 2px 8px; font-size: 12px; font-weight: bold; border-radius: 12px; margin-bottom: 8px; }
+    
+    .btn-buy { width: 100%; padding: 8px; background: #0275d8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .btn-buy:disabled { background: #ccc; cursor: not-allowed; }
+
     .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
     .cart-tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
     .cart-tag { background: #fff; border: 1px solid #ccc; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -43,7 +48,6 @@
     .input-row { display: flex; gap: 10px; }
     .input-row .form-group { flex: 1; }
     input[type="text"], input[type="tel"] { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; box-sizing: border-box; font-size: 15px; }
-    input:focus { border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
     
     .btn-save { width: 100%; padding: 12px; background-color: #28a745; border: none; color: white; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px; }
     .btn-back { width: 100%; padding: 10px; background-color: #6c757d; border: none; color: white; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
@@ -121,11 +125,12 @@
   </div>
 
 <script>
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxv22yNtPyeRMRSIxTNz3HrTh3ZoMTeNsgT1kU9n8RS6Hv1FncLvCejS6XHzxXyaH1hJw/exec"; 
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz1tb56iSwo6ojsIXRpNNgSEAmdFvu9I-tVSoepOmsiGlvJ24mn5OQSEmONH_KHiB-rcQ/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
   let cart = []; 
+  let rawTicketsData = []; // เก็บข้อมูลดิบทั้งหมดที่ดึงมาจากหลังบ้านเพื่อเอาไว้ประมวลผลจัดกลุ่ม
 
   async function startLiff() {
     try {
@@ -148,7 +153,6 @@
     dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
   }
 
-  // 🔥 [แก้ไขใหม่] ดึงข้อมูลที่เก็บแบบแยกคอลมน์มาใส่กล่องข้อความตรงๆ ไม่ต้องสลัดคอมมา
   async function openProfileSection() {
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
@@ -164,14 +168,11 @@
         document.getElementById("phone").value = result.data.phone || "";
         document.getElementById("bankName").value = result.data.bankName || "";
         document.getElementById("bankAccount").value = result.data.bankAccount || "";
-        
-        // ดึงค่าแยกตรงช่องคอลัมน์จากฐานข้อมูลมาโชว์
         document.getElementById("addrHome").value = result.data.addrHome || "";
         document.getElementById("addrSubDistrict").value = result.data.addrSubDistrict || "";
         document.getElementById("addrDistrict").value = result.data.addrDistrict || "";
         document.getElementById("addrProvince").value = result.data.addrProvince || "";
         document.getElementById("addrZipcode").value = result.data.addrZipcode || "";
-        
         document.getElementById("status").innerText = "⚙️ ดึงข้อมูลเดิมสำเร็จ แก้ไขข้อมูลแล้วกดบันทึกได้เลยครับ";
       } else {
         document.getElementById("status").innerText = "✨ สมาชิกใหม่ กรอกข้อมูลแล้วกดบันทึกได้เลยครับ";
@@ -188,11 +189,9 @@
     document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
   }
 
-  // 🔥 [แก้ไขใหม่] ส่งแยกวัตถุข้อมูลเป็นชิ้นส่วนแยกคอลัมน์เด็ดขาด
   document.getElementById("profileForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     document.getElementById("status").innerText = "⏳ กำลังบันทึกข้อมูลประวัติของคุณ...";
-    
     const formData = {
       lineUserId: myLineId,
       fullName: document.getElementById("fullName").value,
@@ -213,6 +212,7 @@
     } catch (err) { alert("❌ บันทึกข้อมูลไม่สำเร็จ"); }
   });
 
+  // 🔥 [ปรับปรุงฟังก์ชันหลัก] ค้นหาและมัดรวมเลขเดียวกัน แต่คนละชุด แสดงเป็นยอดรวมจำนวนใบ
   async function doSearch() {
     try {
       const q = document.getElementById("searchQ").value;
@@ -220,34 +220,73 @@
       const responseData = await res.json();
       
       document.getElementById("totalTicketsCount").innerText = responseData.totalInStock || 0;
+      rawTicketsData = responseData.tickets || [];
       
-      let data = responseData.tickets || [];
       let html = "";
-      if(data.length === 0) {
+      if(rawTicketsData.length === 0) {
         html = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>";
-      } else {
-        data.forEach(item => {
-          let uniqueKey = item.ticketId + "_" + item.setNo;
-          html += `
-            <div class="ticket-item">
-              <div class="ticket-num">${item.ticketId}</div>
-              <div class="ticket-info">งวด: ${item.drawDate} | ชุด: ${item.setNo}</div>
-              <button class="btn-buy" onclick="addToCart('${item.ticketId}', '${item.setNo}', '${uniqueKey}')">เลือกใบนี้</button>
-            </div>`;
-        });
+        document.getElementById("ticketsArea").innerHTML = html;
+        return;
       }
+
+      // 🛠️ ทำการจับกลุ่มมัดรวมข้อมูลเลขสลากที่ซ้ำกัน
+      let groupedTickets = {};
+      rawTicketsData.forEach(item => {
+        let key = item.ticketId + "_" + item.drawDate;
+        if (!groupedTickets[key]) {
+          groupedTickets[key] = {
+            ticketId: item.ticketId,
+            drawDate: item.drawDate,
+            allSets: [] // เก็บชุดทั้งหมดที่มีของเลขนี้
+          };
+        }
+        groupedTickets[key].allSets.push(item.setNo);
+      });
+
+      // 🛠️ วาดแผงหวยแบบรวมยอดใบ
+      Object.values(groupedTickets).forEach(group => {
+        // กรองหาจำนวนใบที่เหลืออยู่จริง (หักที่เลือกใส่ตะกร้าไปแล้วออก)
+        let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId).length;
+        let availableCount = group.allSets.length - selectedInCartCount;
+        
+        // หากลูกค้าเลือกซื้อจนหมดแผง ปุ่มจะโดนปิดใช้งานอัตโนมัติ
+        let isButtonDisabled = availableCount <= 0 ? "disabled" : "";
+        let buttonText = availableCount <= 0 ? "หมดแล้ว" : "เลือกใบนี้";
+
+        html += `
+          <div class="ticket-item">
+            <div class="ticket-num">${group.ticketId}</div>
+            <div class="ticket-info">งวดวันที่: ${group.drawDate}</div>
+            <div class="ticket-qty-badge">${group.allSets.length} ใบ</div>
+            <button class="btn-buy" ${isButtonDisabled} onclick="clickSelectTicket('${group.ticketId}')">${buttonText}</button>
+          </div>`;
+      });
+      
       document.getElementById("ticketsArea").innerHTML = html;
     } catch (e) {
       document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center; color:red;'>❌ ดึงข้อมูลแผงหวยไม่สำเร็จ</p>";
     }
   }
 
-  function addToCart(ticketId, setNo, uniqueKey) {
-    let isExist = cart.some(item => item.uniqueKey === uniqueKey);
-    if (!isExist) {
-      cart.push({ ticketId: ticketId, setNo: setNo, uniqueKey: uniqueKey });
+  // ฟังก์ชันสกัดหยิบเอาเลขชุดถัดไปที่ยังว่างอยู่ ใส่ลงตะกร้าสินค้า
+  function clickSelectTicket(ticketId) {
+    // ค้นหาชุดทั้งหมดของเลขนี้ในคลังดิบ
+    let sameNumTickets = rawTicketsData.filter(t => t.ticketId === ticketId);
+    
+    // หาดูว่าชุดไหนบ้างที่ยังไม่ได้ถูกหยิบลงตะกร้า
+    for(let i = 0; i < sameNumTickets.length; i++) {
+      let target = sameNumTickets[i];
+      let uniqueKey = target.ticketId + "_" + target.setNo;
+      
+      let isAlreadyInCart = cart.some(c => c.uniqueKey === uniqueKey);
+      if(!isAlreadyInCart) {
+        // เจอรหัสชุดที่ยังว่างอยู่ ทำการจองลงตะกร้าทันทีแล้วหยุดลูป
+        cart.push({ ticketId: target.ticketId, setNo: target.setNo, uniqueKey: uniqueKey });
+        break;
+      }
     }
     updateCartUI();
+    renderUpdatedBadges(); // สั่งรีเฟรชยอดคงเหลือบนหน้าแผงหวย
   }
 
   function updateCartUI() {
@@ -271,9 +310,44 @@
     reCalculatePrice();
   }
 
+  // ยกเลิกการเลือกสลากออกจากตะกร้า พร้อมคืนค่าสิทธิ์แผงหวย
   function removeFromCart(uniqueKey) {
     cart = cart.filter(item => item.uniqueKey !== uniqueKey);
     updateCartUI();
+    renderUpdatedBadges(); // สั่งรีเฟรชปุ่มแผงหวยให้กลับมาเลือกได้ใหม่
+  }
+
+  // ฟังก์ชันรีเฟรชเฉพาะปุ่มกด และสถานะจำนวนคงเหลือบนการ์ดแผงหวย โดยลูกค้าไม่ต้องโหลดใหม่ทั้งหน้า
+  function renderUpdatedBadges() {
+    // นำฟังก์ชันประมวลผลจับกลุ่มมาคำนวณซ้ำแบบด่วน
+    let grouped = {};
+    rawTicketsData.forEach(item => {
+      let key = item.ticketId + "_" + item.drawDate;
+      if (!grouped[key]) grouped[key] = { ticketId: item.ticketId, allSets: [] };
+      grouped[key].allSets.push(item.setNo);
+    });
+
+    // วิ่งไล่เช็คสถานะการ์ดแต่ละใบเพื่อปรับเปลี่ยนสถานะปุ่มอัจฉริยะ
+    Object.values(grouped).forEach(group => {
+      let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId).length;
+      let availableCount = group.allSets.length - selectedInCartCount;
+      
+      // มองหาปุ่มกดของการ์ดใบนั้น ๆ บนหน้าจอจริง เพื่อทำการเปลี่ยนข้อความ
+      let items = document.getElementsByClassName("ticket-item");
+      for(let i=0; i<items.length; i++) {
+        let numText = items[i].getElementsByClassName("ticket-num")[0].innerText;
+        if(numText === group.ticketId) {
+          let btn = items[i].getElementsByClassName("btn-buy")[0];
+          if(availableCount <= 0) {
+            btn.disabled = true;
+            btn.innerText = "หมดแล้ว";
+          } else {
+            btn.disabled = false;
+            btn.innerText = "เลือกใบนี้";
+          }
+        }
+      }
+    });
   }
 
   function reCalculatePrice() {
