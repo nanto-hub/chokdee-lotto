@@ -147,8 +147,8 @@
   // ==========================================
   // ⚠️ อย่าลืมแก้ BACKEND_URL และ LIFF_ID ให้เป็นของคุณเอง
   // ==========================================
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyvcw9tR7sEDAjcNJormIAvAggJmeQhBjMTFnQaWXogN3cRddXgtTAcdupuyyvLjCPlMQ/exec"; 
-  const LIFF_ID = "2010122368-FLjBLYl5"; 
+  const BACKEND_URL = "YOUR_BACKEND_WEB_APP_URL"; 
+  const LIFF_ID = "YOUR_LIFF_ID"; 
 
   let myLineId = "";
   let cart = []; 
@@ -363,7 +363,7 @@
   }
 
   function startCountdown() {
-    let timeLeft = 5 * 60; 
+    let timeLeft = 5 * 60; // ปรับเหลือ 5 นาที
     const timerDisplay = document.getElementById("timerDisplay");
     
     clearInterval(countdownInterval);
@@ -371,8 +371,8 @@
       let minutes = Math.floor(timeLeft / 60);
       let seconds = timeLeft % 60;
       
-      minutes = minutes < 5 ? "0" + minutes : minutes;
-      seconds = seconds < 5 ? "0" + seconds : seconds;
+      minutes = minutes < 10 ? "0" + minutes : minutes;
+      seconds = seconds < 10 ? "0" + seconds : seconds;
       timerDisplay.innerText = `${minutes}:${seconds}`;
       
       if (timeLeft <= 0) {
