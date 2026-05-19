@@ -16,30 +16,36 @@
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
     .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
-    .search-box { display: flex; justify-content: space-between; margin-bottom: 15px; }
+    .search-box { display: flex; justify-content: space-between; margin-bottom: 5px; }
     .search-input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
     .btn-search { width: 26%; padding: 10px; background: #d9534f; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    
+    .total-stock-count { font-size: 14px; color: #666; margin-bottom: 15px; padding-left: 2px; font-weight: 500; }
+    .total-stock-count span { color: #d9534f; font-weight: bold; }
+
     .ticket-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .ticket-item { border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #fafafa; text-align: center; }
     .ticket-num { font-size: 22px; font-weight: bold; color: #333; }
     .ticket-info { font-size: 12px; color: #777; margin: 5px 0; }
     .btn-buy { width: 100%; padding: 8px; background: #0275d8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     
-    /* ตะกร้าสินค้า */
     .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
     .cart-tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-    
-    /* 🏷️ สไตล์ป้ายหวยในตะกร้า พร้อมปุ่มกากบาทลบออก */
     .cart-tag { background: #fff; border: 1px solid #ccc; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .cart-tag i { color: #d9534f; cursor: pointer; font-size: 14px; padding: 2px; }
     .cart-tag i:hover { color: #c9302c; }
-
     .select-style { width: 100%; padding: 8px; border-radius: 4px; margin: 10px 0; }
     .btn-order { width: 100%; padding: 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    
     .profile-section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: none; }
-    .form-group { margin-bottom: 15px; }
-    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
-    .btn-save { width: 100%; padding: 12px; background-color: #28a745; border: none; color: white; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #495057; }
+    .input-row { display: flex; gap: 10px; }
+    .input-row .form-group { flex: 1; }
+    input[type="text"], input[type="tel"] { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; box-sizing: border-box; font-size: 15px; }
+    input:focus { border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
+    
+    .btn-save { width: 100%; padding: 12px; background-color: #28a745; border: none; color: white; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px; }
     .btn-back { width: 100%; padding: 10px; background-color: #6c757d; border: none; color: white; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
     #qrContainer { text-align: center; margin-top: 20px; display: none; }
     #qrContainer img { width: 220px; height: 220px; border: 1px solid #ccc; padding: 5px; background: #fff; }
@@ -64,6 +70,8 @@
         <input type="text" id="searchQ" class="search-input" placeholder="พิมพ์เลขท้ายที่ต้องการ..." maxlength="6">
         <button class="btn-search" onclick="doSearch()">ค้นหา</button>
       </div>
+      
+      <div class="total-stock-count">ขณะนี้มีสลากในแผงทั้งหมด: <span id="totalTicketsCount">0</span> ใบ</div>
 
       <div id="ticketsArea" class="ticket-list"></div>
 
@@ -93,9 +101,19 @@
         <input type="hidden" id="lineUserId">
         <div class="form-group"><label>ชื่อ-นามสกุล (สำหรับจัดส่ง/ขึ้นเงิน)</label><input type="text" id="fullName" required></div>
         <div class="form-group"><label>เบอร์โทรศัพท์</label><input type="tel" id="phone" required></div>
-        <div class="form-group"><label>ที่อยู่จัดส่งสลากใบจริง</label><textarea id="address" required></textarea></div>
+        
+        <div class="form-group"><label>บ้านเลขที่ / หมู่บ้าน / ถนน</label><input type="text" id="addrHome" placeholder="123/45 ม.2 ซอยราษฎร์บำรุง" required></div>
+        <div class="form-group"><label>แขวง / ตำบล</label><input type="text" id="addrSubDistrict" placeholder="ในเมือง" required></div>
+        <div class="form-group"><label>เขต / อำเภอ</label><input type="text" id="addrDistrict" placeholder="เมืองขอนแก่น" required></div>
+        
+        <div class="input-row">
+          <div class="form-group"><label>จังหวัด</label><input type="text" id="addrProvince" placeholder="ขอนแก่น" required></div>
+          <div class="form-group"><label>รหัสไปรษณีย์</label><input type="tel" id="addrZipcode" placeholder="40000" maxlength="5" required></div>
+        </div>
+
         <div class="form-group"><label>ธนาคารของคุณ (สำหรับโอนเงินรางวัล)</label><input type="text" id="bankName"></div>
         <div class="form-group"><label>เลขที่บัญชีธนาคาร</label><input type="text" id="bankAccount"></div>
+        
         <button type="submit" class="btn-save">💾 บันทึกข้อมูลส่วนตัว</button>
         <button type="button" class="btn-back" onclick="closeProfileSection()">⬅️ กลับหน้าแผงหวย</button>
       </form>
@@ -130,6 +148,7 @@
     dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
   }
 
+  // 🔥 [แก้ไขใหม่] ดึงข้อมูลที่เก็บแบบแยกคอลมน์มาใส่กล่องข้อความตรงๆ ไม่ต้องสลัดคอมมา
   async function openProfileSection() {
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
@@ -139,12 +158,20 @@
       document.getElementById("lottoSection").style.display = "none";
       document.getElementById("profileSection").style.display = "block";
       document.getElementById("titleText").innerText = "👤 ข้อมูลส่วนตัวของคุณ";
+      
       if (result.status === "found") {
         document.getElementById("fullName").value = result.data.fullName || "";
         document.getElementById("phone").value = result.data.phone || "";
-        document.getElementById("address").value = result.data.address || "";
         document.getElementById("bankName").value = result.data.bankName || "";
         document.getElementById("bankAccount").value = result.data.bankAccount || "";
+        
+        // ดึงค่าแยกตรงช่องคอลัมน์จากฐานข้อมูลมาโชว์
+        document.getElementById("addrHome").value = result.data.addrHome || "";
+        document.getElementById("addrSubDistrict").value = result.data.addrSubDistrict || "";
+        document.getElementById("addrDistrict").value = result.data.addrDistrict || "";
+        document.getElementById("addrProvince").value = result.data.addrProvince || "";
+        document.getElementById("addrZipcode").value = result.data.addrZipcode || "";
+        
         document.getElementById("status").innerText = "⚙️ ดึงข้อมูลเดิมสำเร็จ แก้ไขข้อมูลแล้วกดบันทึกได้เลยครับ";
       } else {
         document.getElementById("status").innerText = "✨ สมาชิกใหม่ กรอกข้อมูลแล้วกดบันทึกได้เลยครับ";
@@ -161,14 +188,20 @@
     document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
   }
 
+  // 🔥 [แก้ไขใหม่] ส่งแยกวัตถุข้อมูลเป็นชิ้นส่วนแยกคอลัมน์เด็ดขาด
   document.getElementById("profileForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     document.getElementById("status").innerText = "⏳ กำลังบันทึกข้อมูลประวัติของคุณ...";
+    
     const formData = {
       lineUserId: myLineId,
       fullName: document.getElementById("fullName").value,
       phone: document.getElementById("phone").value,
-      address: document.getElementById("address").value,
+      addrHome: document.getElementById("addrHome").value,
+      addrSubDistrict: document.getElementById("addrSubDistrict").value,
+      addrDistrict: document.getElementById("addrDistrict").value,
+      addrProvince: document.getElementById("addrProvince").value,
+      addrZipcode: document.getElementById("addrZipcode").value,
       bankName: document.getElementById("bankName").value,
       bankAccount: document.getElementById("bankAccount").value
     };
@@ -184,9 +217,12 @@
     try {
       const q = document.getElementById("searchQ").value;
       const res = await fetch(`${BACKEND_URL}?action=search&q=${q}`);
-      const data = await res.json();
-      let html = "";
+      const responseData = await res.json();
       
+      document.getElementById("totalTicketsCount").innerText = responseData.totalInStock || 0;
+      
+      let data = responseData.tickets || [];
+      let html = "";
       if(data.length === 0) {
         html = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>";
       } else {
@@ -214,20 +250,16 @@
     updateCartUI();
   }
 
-  // 🛠️ ฟังก์ชันใหม่: อัปเดตเมนูและวาดป้ายหวยในตะกร้า พร้อมปุ่มยกเลิก (X)
   function updateCartUI() {
     const summaryArea = document.getElementById("summaryArea");
     const container = document.getElementById("selectedLotsContainer");
-    
     if (cart.length === 0) {
       summaryArea.style.display = "none";
       container.innerHTML = "";
       return;
     }
-    
     summaryArea.style.display = "block";
     let html = "";
-    
     cart.forEach(item => {
       html += `
         <span class="cart-tag">
@@ -235,12 +267,10 @@
           <i class="fa-solid fa-circle-xmark" onclick="removeFromCart('${item.uniqueKey}')"></i>
         </span>`;
     });
-    
     container.innerHTML = html;
     reCalculatePrice();
   }
 
-  // 🛠️ ฟังก์ชันใหม่: สั่งลบหวยใบที่เลือกออกจากตะกร้าสินค้า
   function removeFromCart(uniqueKey) {
     cart = cart.filter(item => item.uniqueKey !== uniqueKey);
     updateCartUI();
