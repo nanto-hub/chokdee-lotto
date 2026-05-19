@@ -13,14 +13,13 @@
     .setting-btn { position: absolute; left: 15px; top: 15px; color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; padding: 5px; }
     .setting-btn:hover { transform: rotate(45deg); }
     
-    /* 🌟 สไตล์สำหรับป้ายสถานะร้าน และเวลานับถอยหลัง */
     .store-status-container { position: absolute; right: 15px; top: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     .store-badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: bold; color: white; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .bg-open { background-color: #28a745; border: 1px solid #1e7e34; }
     .bg-closed { background-color: #6c757d; border: 1px solid #545b62; }
     .close-timer { font-size: 10px; color: #fff; font-weight: normal; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; display: none; }
 
-    .dropdown-menu { display: none; position: absolute; left: 15px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 150px; }
+    .dropdown-menu { display: none; position: absolute; left: 15px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 170px; }
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
     .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
@@ -65,8 +64,16 @@
     
     .timer-box { font-size: 18px; font-weight: bold; color: #d9534f; margin-top: 15px; background-color: #ffeeba; padding: 10px; border-radius: 8px; border: 1px solid #ffdf7e; }
     .alert-box { background-color: #ffe6e6; color: #cc0000; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ff9999; font-size: 14px; font-weight: 500; }
-    
     .closed-store-box { grid-column: span 2; text-align:center; padding: 30px; background: #fff; border-radius: 8px; border: 1px solid #f5c6cb; margin-top: 20px;}
+    
+    /* 🌟 สไตล์ใหม่ สำหรับหน้าแสดงสลากของลูกค้า */
+    .my-tickets-section { display: none; padding: 5px; }
+    .my-ticket-card { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 12px; display: flex; gap: 12px; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03); margin-bottom: 12px; }
+    .my-ticket-card img { width: 85px; height: auto; border-radius: 6px; border: 1px solid #eee; object-fit: cover; }
+    .my-ticket-details { flex: 1; }
+    .my-ticket-num { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 2px; }
+    .my-ticket-set { font-size: 13px; color: #666; margin-bottom: 8px; }
+    .btn-view-ticket { background: #17a2b8; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; }
   </style>
 </head>
 <body>
@@ -82,6 +89,7 @@
     
     <div id="myDropdown" class="dropdown-menu">
       <a href="#" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
+      <a href="#" onclick="openMyTicketsSection()">🎟️ สลากของคุณ</a>
     </div>
   </div>
 
@@ -89,7 +97,6 @@
     <div id="status" class="status-msg">กำลังเชื่อมต่อระบบ LINE...</div>
 
     <div id="lottoSection" style="display: block;">
-      
       <div id="searchAreaTop">
         <div class="search-box">
           <input type="text" id="searchQ" class="search-input" placeholder="พิมพ์เลขท้ายที่ต้องการ..." maxlength="6">
@@ -97,29 +104,22 @@
         </div>
         <div class="total-stock-count">ขณะนี้มีสลากในแผงทั้งหมด: <span id="totalTicketsCount">0</span> ใบ</div>
       </div>
-
       <div id="ticketsArea" class="ticket-list"></div>
-
       <div id="summaryArea" class="order-summary">
         <h3>🛒 ตะกร้าสินค้าของคุณ</h3>
         <div id="selectedLotsContainer" class="cart-tags-container"></div>
-        
         <label style="font-weight: bold; margin-top: 10px; display: block;">เลือกรูปแบบบริการ:</label>
         <select id="shippingType" class="select-style" onchange="reCalculatePrice()"></select>
-        
         <p style="font-size: 16px; font-weight: bold;">ยอดชำระสุทธิโดยประมาณ: <span id="estPrice" style="color: #28a745;">0</span> บาท</p>
         <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ (รับ QR Code)</button>
       </div>
 
       <div id="qrContainer">
         <h3 style="color: #28a745;">🎉 สร้างใบสั่งซื้อสำเร็จ!</h3>
-        
         <div class="alert-box">
           <i class="fa-solid fa-triangle-exclamation"></i> <b>สำคัญมาก!</b> กรุณาโอนเงินให้ <u>ตรงกับยอดที่ระบุเป๊ะๆ (รวมเศษสตางค์)</u> หากโอนปัดเศษ ระบบบอทจะไม่อนุมัติอัตโนมัติครับ
         </div>
-
         <p style="color: #d9534f; font-weight: bold; font-size: 20px;">ยอดที่ต้องโอน: <span id="finalPriceText">0.00</span> บาท</p>
-        
         <div id="qrImageSection">
           <img id="payQr" src="" alt="PromptPay QR">
           <div class="timer-box">⏳ กรุณาชำระเงินภายใน: <span id="timerDisplay">05:00</span></div>
@@ -127,7 +127,6 @@
             💡 โอนเสร็จแล้วให้กด ( X ) ปิดหน้านี้ <br>และส่งรูปสลิปเข้าแชท LINE ร้านได้เลยครับ!
           </p>
         </div>
-        
         <div id="expiredSection" style="display: none;">
           <h3 style="color: #d9534f;">❌ หมดเวลาชำระเงิน!</h3>
           <p style="font-size: 15px; margin-bottom: 20px;">ใบสั่งซื้อนี้ถูกยกเลิกอัตโนมัติเนื่องจากเกินเวลา 5 นาทีครับ<br>สลากของคุณถูกนำกลับไปวางแผงอีกครั้ง</p>
@@ -154,20 +153,27 @@
         <button type="button" class="btn-back" onclick="closeProfileSection()">⬅️ กลับหน้าแผงหวย</button>
       </form>
     </div>
+
+    <div id="myTicketsSection" class="my-tickets-section">
+      <h3 style="color: #d9534f; margin-top: 5px; border-bottom: 2px solid #eee; padding-bottom: 10px;">🎟️ สลากที่สั่งซื้อสำเร็จ</h3>
+      <div id="myTicketsList"></div>
+      <button class="btn-back" style="background-color: #6c757d; margin-top: 20px;" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
+    </div>
+
   </div>
 
 <script>
   // ==========================================
   // ⚠️ อย่าลืมแก้ BACKEND_URL และ LIFF_ID ให้เป็นของคุณเอง
   // ==========================================
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz1ZAwXzU5KEibOi0DIJwBg5LHeIzAVr0bws1HX-m5748dQGzZRCmP4F-eW6-o5aGpdlQ/exec"; 
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzmPQG3o7_zEh_5pXzSueB8AncNgK6n8CHgbXdEBZDu-EqAhiRSgeoYFUzb6PWqxJT39w/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
   let cart = []; 
   let rawTicketsData = []; 
   let countdownInterval; 
-  let storeClosingInterval; // 🌟 ตัวแปรสำหรับนาฬิกานับเวลาร้านปิด
+  let storeClosingInterval; 
   let storeConfig = null; 
 
   async function startLiff() {
@@ -201,15 +207,12 @@
 
       if (timeLeft > 0) {
         alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินก่อนทำรายการใหม่ครับ");
-        
         document.getElementById("searchAreaTop").style.display = "none";
         document.getElementById("ticketsArea").style.display = "none";
         document.getElementById("summaryArea").style.display = "none";
-        
         document.getElementById("qrContainer").style.display = "block";
         document.getElementById("finalPriceText").innerText = activeOrder.finalAmount;
         document.getElementById("payQr").src = activeOrder.qrCodeImgUrl;
-        
         startCountdown(timeLeft); 
         return true; 
       } else {
@@ -227,6 +230,9 @@
     dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
   }
 
+  // ----------------------------------------------------
+  // 🌟 ฟังก์ชันจัดการหน้า "ข้อมูลส่วนตัว"
+  // ----------------------------------------------------
   async function openProfileSection() {
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
@@ -236,6 +242,7 @@
       const result = await response.json();
       
       document.getElementById("lottoSection").style.display = "none";
+      document.getElementById("myTicketsSection").style.display = "none"; // ปิดหน้าสลาก
       document.getElementById("profileSection").style.display = "block";
       document.getElementById("titleText").innerText = "👤 ข้อมูลส่วนตัวของคุณ";
       
@@ -265,6 +272,64 @@
     document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
   }
 
+  // ----------------------------------------------------
+  // 🌟 ฟังก์ชันจัดการหน้า "สลากของคุณ"
+  // ----------------------------------------------------
+  async function openMyTicketsSection() {
+    document.getElementById("myDropdown").style.display = "none";
+    document.getElementById("lottoSection").style.display = "none";
+    document.getElementById("profileSection").style.display = "none";
+    document.getElementById("myTicketsSection").style.display = "block";
+    
+    document.getElementById("titleText").innerText = "🎟️ สลากของคุณ";
+    document.getElementById("status").innerText = "⏳ กำลังโหลดข้อมูลสลากของคุณ...";
+    
+    try {
+      const noCache = Date.now();
+      const response = await fetch(`${BACKEND_URL}?action=getMyTickets&lineUserId=${myLineId}&_t=${noCache}`);
+      const result = await response.json();
+      
+      if(result.status === "success") {
+        renderMyTickets(result.tickets);
+        document.getElementById("status").innerText = `✅ พบสลากของคุณจำนวน ${result.tickets.length} ใบ`;
+      } else {
+         document.getElementById("status").innerText = "❌ ดึงข้อมูลไม่สำเร็จ";
+      }
+    } catch(e) {
+       document.getElementById("status").innerText = "❌ เกิดข้อผิดพลาดในการโหลดข้อมูล";
+    }
+  }
+  
+  function renderMyTickets(tickets) {
+    const container = document.getElementById("myTicketsList");
+    if(tickets.length === 0) {
+       container.innerHTML = "<p style='text-align:center; color:#999; padding:40px 10px; background: white; border-radius: 8px;'>ยังไม่มีประวัติการซื้อสลากครับ<br><br>ลองเลือกเลขเด็ดในแผงดูสิครับ! 🎫</p>";
+       return;
+    }
+    
+    let html = "";
+    tickets.forEach(t => {
+       html += `
+         <div class="my-ticket-card">
+           <img src="${t.thumbUrl}" alt="ลอตเตอรี่" onerror="this.src='https://via.placeholder.com/85?text=No+Image'">
+           <div class="my-ticket-details">
+             <div class="my-ticket-num">${t.ticketId}</div>
+             <div class="my-ticket-set">งวด: ${t.drawDate}<br>ชุดที่ ${t.setNo}</div>
+             <a href="${t.viewUrl}" target="_blank" class="btn-view-ticket"><i class="fa-solid fa-magnifying-glass"></i> ดูใบจริง</a>
+           </div>
+         </div>
+       `;
+    });
+    container.innerHTML = html;
+  }
+
+  function closeMyTicketsSection() {
+    document.getElementById("myTicketsSection").style.display = "none";
+    document.getElementById("lottoSection").style.display = "block";
+    document.getElementById("titleText").innerText = "🎫 โชคดีล็อตเตอรี่";
+    document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
+  }
+
   document.getElementById("profileForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     document.getElementById("status").innerText = "⏳ กำลังบันทึกข้อมูลประวัติของคุณ...";
@@ -288,13 +353,11 @@
     } catch (err) { alert("❌ บันทึกข้อมูลไม่สำเร็จ"); }
   });
 
-  // 🌟 ฟังก์ชันนับถอยหลังร้านปิด
   function startStoreClosingTimer(closeTimeStr) {
     clearInterval(storeClosingInterval);
     const timerElem = document.getElementById("storeCloseTimer");
     timerElem.style.display = "block";
 
-    // ดึงชั่วโมงและนาทีที่ต้องปิดร้าน
     const [closeHour, closeMin] = closeTimeStr.split(":").map(Number);
 
     storeClosingInterval = setInterval(() => {
@@ -302,18 +365,15 @@
       const closeDate = new Date();
       closeDate.setHours(closeHour, closeMin, 0, 0);
 
-      // คำนวณความต่างของเวลาเป็นมิลลิวินาที
       let diffMs = closeDate - now;
 
       if (diffMs <= 0) {
         clearInterval(storeClosingInterval);
         timerElem.innerText = "หมดเวลาทำการแล้ว";
-        // หน่วงเวลาแปบนึง แล้วรีเฟรชหน้าเพื่อให้ระบบตัดเข้าร้านปิด
         setTimeout(() => location.reload(), 2000); 
         return;
       }
 
-      // แปลงเป็นชั่วโมง นาที วินาที
       const hours = Math.floor(diffMs / (1000 * 60 * 60));
       const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
       const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
@@ -336,7 +396,6 @@
       
       storeConfig = responseData.config;
       
-      // อัปเดตป้ายสถานะมุมขวาบน
       const badge = document.getElementById("storeStatusBadge");
       const timerBadge = document.getElementById("storeCloseTimer");
       
@@ -345,12 +404,11 @@
         if (storeConfig.isOpenNow) {
           badge.innerText = "🟢 เปิดให้บริการ";
           badge.className = "store-badge bg-open";
-          // 🌟 สั่งเริ่มนับถอยหลังถ้าร้านเปิด
           startStoreClosingTimer(storeConfig.closeTime);
         } else {
           badge.innerText = "🔴 ปิดทำการ";
           badge.className = "store-badge bg-closed";
-          timerBadge.style.display = "none"; // ซ่อนเวลานับถอยหลังถ้าร้านปิดแล้ว
+          timerBadge.style.display = "none"; 
           clearInterval(storeClosingInterval);
         }
       }
