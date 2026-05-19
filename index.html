@@ -105,7 +105,7 @@
         
         <div id="qrImageSection">
           <img id="payQr" src="" alt="PromptPay QR">
-          <div class="timer-box">⏳ กรุณาชำระเงินภายใน: <span id="timerDisplay">10:00</span></div>
+          <div class="timer-box">⏳ กรุณาชำระเงินภายใน: <span id="timerDisplay">05:00</span></div>
           <p style="font-weight: bold; margin-top: 10px; font-size: 14px; color: #0056b3;">
             💡 โอนเสร็จแล้วให้กด ( X ) ปิดหน้านี้ <br>และส่งรูปสลิปเข้าแชท LINE ร้านได้เลยครับ!
           </p>
@@ -113,7 +113,7 @@
         
         <div id="expiredSection" style="display: none;">
           <h3 style="color: #d9534f;">❌ หมดเวลาชำระเงิน!</h3>
-          <p style="font-size: 15px; margin-bottom: 20px;">ใบสั่งซื้อนี้ถูกยกเลิกอัตโนมัติเนื่องจากเกินเวลา 10 นาทีครับ<br>สลากของคุณถูกนำกลับไปวางแผงอีกครั้ง</p>
+          <p style="font-size: 15px; margin-bottom: 20px;">ใบสั่งซื้อนี้ถูกยกเลิกอัตโนมัติเนื่องจากเกินเวลา 5 นาทีครับ<br>สลากของคุณถูกนำกลับไปวางแผงอีกครั้ง</p>
           <button class="btn-back" onclick="location.reload()" style="background-color: #0275d8; padding: 12px; font-size: 16px;">🔄 กลับไปค้นหาเลขเด็ดใหม่</button>
         </div>
       </div>
@@ -363,7 +363,7 @@
   }
 
   function startCountdown() {
-    let timeLeft = 10 * 60; 
+    let timeLeft = 5 * 60; 
     const timerDisplay = document.getElementById("timerDisplay");
     
     clearInterval(countdownInterval);
@@ -371,8 +371,8 @@
       let minutes = Math.floor(timeLeft / 60);
       let seconds = timeLeft % 60;
       
-      minutes = minutes < 10 ? "0" + minutes : minutes;
-      seconds = seconds < 10 ? "0" + seconds : seconds;
+      minutes = minutes < 5 ? "0" + minutes : minutes;
+      seconds = seconds < 5 ? "0" + seconds : seconds;
       timerDisplay.innerText = `${minutes}:${seconds}`;
       
       if (timeLeft <= 0) {
