@@ -9,45 +9,29 @@
   
   <style>
     body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f6f9; margin: 0; padding: 0; color: #333; }
-    
-    /* แถบหัวเว็บด้านบน */
     .header-bar { background-color: #d9534f; color: white; padding: 15px; text-align: center; position: relative; font-size: 20px; font-weight: bold; }
-    
-    /* ⚙️ ปุ่มฟันเฟืองมุมบนซ้าย */
     .setting-btn { position: absolute; left: 15px; top: 15px; color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; padding: 5px; }
     .setting-btn:hover { transform: rotate(45deg); }
-    
-    /* 📋 เมนูตัวเลือกเด้งย่อย (Dropdown Drop) */
     .dropdown-menu { display: none; position: absolute; left: 15px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 150px; }
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
-
     .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
-    
-    /* ส่วนค้นหาตัวเลข */
     .search-box { display: flex; justify-content: space-between; margin-bottom: 15px; }
     .search-input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
     .btn-search { width: 26%; padding: 10px; background: #d9534f; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
-    
-    /* แสดงแผงหวย */
     .ticket-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .ticket-item { border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #fafafa; text-align: center; }
     .ticket-num { font-size: 22px; font-weight: bold; color: #333; }
     .ticket-info { font-size: 12px; color: #777; margin: 5px 0; }
     .btn-buy { width: 100%; padding: 8px; background: #0275d8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-    
-    /* ตะกร้าสรุปยอด */
     .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
     .select-style { width: 100%; padding: 8px; border-radius: 4px; margin: 10px 0; }
     .btn-order { width: 100%; padding: 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
-    
-    /* ส่วนหน้าต่างแก้ไขข้อมูลส่วนตัว */
     .profile-section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: none; }
     .form-group { margin-bottom: 15px; }
     .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
     .btn-save { width: 100%; padding: 12px; background-color: #28a745; border: none; color: white; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
     .btn-back { width: 100%; padding: 10px; background-color: #6c757d; border: none; color: white; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
-
     #qrContainer { text-align: center; margin-top: 20px; display: none; }
     #qrContainer img { width: 220px; height: 220px; border: 1px solid #ccc; padding: 5px; background: #fff; }
     .status-msg { text-align: center; font-size: 13px; color: #666; margin-bottom: 10px; background: #e9ecef; padding: 6px; border-radius: 4px; }
@@ -58,7 +42,6 @@
   <div class="header-bar">
     <i class="fa-solid fa-gear setting-btn" id="gearIcon" onclick="toggleDropdown(event)"></i>
     <span id="titleText">🎫 โชคดีล็อตเตอรี่</span>
-    
     <div id="myDropdown" class="dropdown-menu">
       <a href="#" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
     </div>
@@ -77,7 +60,7 @@
 
       <div id="summaryArea" class="order-summary">
         <h3>🛒 ตะกร้าสินค้าของคุณ</h3>
-        <p>เลขที่เลือก: <span id="selectedLots" style="font-weight: bold; color: #d9534f;"></span></p>
+        <p>ใบที่เลือก: <span id="selectedLots" style="font-weight: bold; color: #d9534f;"></span></p>
         <label style="font-weight: bold;">เลือกรูปแบบบริการ:</label>
         <select id="shippingType" class="select-style" onchange="reCalculatePrice()">
           <option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ 80 + บริการจัดเก็บ/ตรวจ 20 = 100 บ.)</option>
@@ -114,7 +97,7 @@
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
-  let cart = [];
+  let cart = []; // เก็บอาร์เรย์ของออบเจกต์หวย {id: "123456", set: "01", key: "123456-01"}
 
   async function startLiff() {
     try {
@@ -131,26 +114,21 @@
     }
   }
 
-  // เปิด-ปิด เมนูฟันเฟือง
   function toggleDropdown(event) {
     if (event) event.stopPropagation();
     const dropdown = document.getElementById("myDropdown");
     dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
   }
 
-  // สลับไปหน้า ข้อมูลส่วนตัว และดึงข้อมูลเดิมจากชีทมาโชว์ทันที
   async function openProfileSection() {
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
-    
     try {
       const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}`);
       const result = await response.json();
-      
       document.getElementById("lottoSection").style.display = "none";
       document.getElementById("profileSection").style.display = "block";
       document.getElementById("titleText").innerText = "👤 ข้อมูลส่วนตัวของคุณ";
-      
       if (result.status === "found") {
         document.getElementById("fullName").value = result.data.fullName || "";
         document.getElementById("phone").value = result.data.phone || "";
@@ -166,7 +144,6 @@
     }
   }
 
-  // กลับไปหน้าเลือกหวย
   function closeProfileSection() {
     document.getElementById("profileSection").style.display = "none";
     document.getElementById("lottoSection").style.display = "block";
@@ -174,7 +151,6 @@
     document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
   }
 
-  // ส่งข้อมูลโปรไฟล์ไปบันทึกทับ/ลงทะเบียนใหม่
   document.getElementById("profileForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     document.getElementById("status").innerText = "⏳ กำลังบันทึกข้อมูลประวัติของคุณ...";
@@ -194,7 +170,7 @@
     } catch (err) { alert("❌ บันทึกข้อมูลไม่สำเร็จ"); }
   });
 
-  // ค้นหาหวย
+  // 🔥 ฟังก์ชันค้นหาหวย: ปรับโครงสร้างส่งตัวแปรคีย์ผสม (เลขสลาก + ชุด) ป้องกันหน้าจอรวมค่าซ้ำ
   async function doSearch() {
     try {
       const q = document.getElementById("searchQ").value;
@@ -205,11 +181,13 @@
         html = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>";
       } else {
         data.forEach(item => {
+          // สร้าง Unique Key ผสมระหว่างเลขหวยและชุด เช่น "123456_01"
+          let uniqueKey = item.ticketId + "_" + item.setNo;
           html += `
             <div class="ticket-item">
               <div class="ticket-num">${item.ticketId}</div>
               <div class="ticket-info">งวด: ${item.drawDate} | ชุด: ${item.setNo}</div>
-              <button class="btn-buy" onclick="addToCart('${item.ticketId}')">เลือกใบนี้</button>
+              <button class="btn-buy" onclick="addToCart('${item.ticketId}', '${item.setNo}', '${uniqueKey}')">เลือกใบนี้</button>
             </div>`;
         });
       }
@@ -219,10 +197,18 @@
     }
   }
 
-  function addToCart(id) {
-    if(!cart.includes(id)) cart.push(id);
+  function addToCart(ticketId, setNo, uniqueKey) {
+    // เช็คจากคีย์ผสมว่าเคยเลือกหรือยัง ป้องกันระบบมองเลขซ้ำคนละชุดเป็นใบเดียวกัน
+    let isExist = cart.some(item => item.uniqueKey === uniqueKey);
+    if (!isExist) {
+      cart.push({ ticketId: ticketId, setNo: setNo, uniqueKey: uniqueKey });
+    }
+    
     document.getElementById("summaryArea").style.display = "block";
-    document.getElementById("selectedLots").innerText = cart.join(", ");
+    
+    // แสดงรายการสลากที่เลือกในตะกร้า (โชว์ทั้งเลขและชุดชัดเจน)
+    let displayTexts = cart.map(item => `${item.ticketId} (ชุด ${item.setNo})`);
+    document.getElementById("selectedLots").innerText = displayTexts.join(", ");
     reCalculatePrice();
   }
 
@@ -236,7 +222,11 @@
   async function submitOrder() {
     if(cart.length === 0) return;
     const type = document.getElementById("shippingType").value;
-    const postData = { action: "createOrder", data: { lineUserId: myLineId, tickets: cart, shippingType: type } };
+    
+    // สกัดเอาเฉพาะรหัสเลขสลากส่งกลับไปให้หลังบ้านบันทึกสต็อกเหมือนเดิม
+    let ticketIds = cart.map(item => item.ticketId);
+    
+    const postData = { action: "createOrder", data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } };
     const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify(postData) });
     const result = await response.json();
     if(result.status === "success") {
@@ -248,7 +238,6 @@
     }
   }
 
-  // ปิดหน้าต่าง Dropdown อัตโนมัติเมื่อกดคลิกพื้นที่อื่น
   window.onclick = function(event) {
     if (!event.target.matches('.setting-btn') && !event.target.matches('#gearIcon')) {
       const dropdowns = document.getElementsByClassName("dropdown-menu");
