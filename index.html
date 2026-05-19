@@ -16,6 +16,7 @@
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
     .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
+    
     .search-box { display: flex; justify-content: space-between; margin-bottom: 5px; }
     .search-input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
     .btn-search { width: 26%; padding: 10px; background: #d9534f; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
@@ -72,12 +73,14 @@
     <div id="status" class="status-msg">กำลังเชื่อมต่อระบบ LINE...</div>
 
     <div id="lottoSection" style="display: block;">
-      <div class="search-box">
-        <input type="text" id="searchQ" class="search-input" placeholder="พิมพ์เลขท้ายที่ต้องการ..." maxlength="6">
-        <button class="btn-search" onclick="doSearch()">ค้นหา</button>
-      </div>
       
-      <div class="total-stock-count">ขณะนี้มีสลากในแผงทั้งหมด: <span id="totalTicketsCount">0</span> ใบ</div>
+      <div id="searchAreaTop">
+        <div class="search-box">
+          <input type="text" id="searchQ" class="search-input" placeholder="พิมพ์เลขท้ายที่ต้องการ..." maxlength="6">
+          <button class="btn-search" onclick="doSearch()">ค้นหา</button>
+        </div>
+        <div class="total-stock-count">ขณะนี้มีสลากในแผงทั้งหมด: <span id="totalTicketsCount">0</span> ใบ</div>
+      </div>
 
       <div id="ticketsArea" class="ticket-list"></div>
 
@@ -124,19 +127,15 @@
         <input type="hidden" id="lineUserId">
         <div class="form-group"><label>ชื่อ-นามสกุล (สำหรับจัดส่ง/ขึ้นเงิน)</label><input type="text" id="fullName" required></div>
         <div class="form-group"><label>เบอร์โทรศัพท์</label><input type="tel" id="phone" required></div>
-        
         <div class="form-group"><label>บ้านเลขที่ / หมู่บ้าน / ถนน</label><input type="text" id="addrHome" placeholder="123/45 ม.2 ซอยราษฎร์บำรุง" required></div>
         <div class="form-group"><label>แขวง / ตำบล</label><input type="text" id="addrSubDistrict" placeholder="ในเมือง" required></div>
         <div class="form-group"><label>เขต / อำเภอ</label><input type="text" id="addrDistrict" placeholder="เมืองขอนแก่น" required></div>
-        
         <div class="input-row">
           <div class="form-group"><label>จังหวัด</label><input type="text" id="addrProvince" placeholder="ขอนแก่น" required></div>
           <div class="form-group"><label>รหัสไปรษณีย์</label><input type="tel" id="addrZipcode" placeholder="40000" maxlength="5" required></div>
         </div>
-
         <div class="form-group"><label>ธนาคารของคุณ (สำหรับโอนเงินรางวัล)</label><input type="text" id="bankName"></div>
         <div class="form-group"><label>เลขที่บัญชีธนาคาร</label><input type="text" id="bankAccount"></div>
-        
         <button type="submit" class="btn-save">💾 บันทึกข้อมูลส่วนตัว</button>
         <button type="button" class="btn-back" onclick="closeProfileSection()">⬅️ กลับหน้าแผงหวย</button>
       </form>
@@ -149,8 +148,7 @@
   // ==========================================
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxhzmOHJ6usNLz9FzRFQfPthUsSX1O83Qc-6xObEs_8U4stGKv21tPCxsk5-jb7Hvov9Q/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
-
-  let myLineId = "";
+let myLineId = "";
   let cart = []; 
   let rawTicketsData = []; 
   let countdownInterval; 
@@ -159,15 +157,57 @@
     try {
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { liff.login(); return; }
+      
       const profile = await liff.getProfile();
       myLineId = profile.userId;
       document.getElementById("lineUserId").value = myLineId;
       document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
-      doSearch(); 
+      
+      // 🌟 เช็คว่ามีออเดอร์ค้างจ่ายอยู่ในระบบหรือไม่
+      const hasPendingOrder = checkActiveOrder();
+      
+      // ถ้าไม่มีออเดอร์ค้าง ค่อยโหลดแผงหวยตามปกติ
+      if (!hasPendingOrder) {
+        doSearch(); 
+      }
+
     } catch (e) { 
       console.error(e); 
       document.getElementById("status").innerText = "❌ เชื่อมต่อระบบ LINE LIFF ล้มเหลว";
     }
+  }
+
+  // 🌟 ฟังก์ชันใหม่: ตรวจสอบสถานะออเดอร์จาก LocalStorage
+  function checkActiveOrder() {
+    const orderStr = localStorage.getItem('chokdee_active_order');
+    if (orderStr) {
+      const activeOrder = JSON.parse(orderStr);
+      const now = Date.now();
+      // คำนวณเวลาที่เหลือเป็นวินาที
+      const timeLeft = Math.floor((activeOrder.expireTime - now) / 1000);
+
+      if (timeLeft > 0) {
+        // ยังไม่หมดเวลา (ดึงหน้า QR Code กลับมา)
+        alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินก่อนทำรายการใหม่ครับ");
+        
+        document.getElementById("searchAreaTop").style.display = "none";
+        document.getElementById("ticketsArea").style.display = "none";
+        document.getElementById("summaryArea").style.display = "none";
+        
+        document.getElementById("qrContainer").style.display = "block";
+        document.getElementById("finalPriceText").innerText = activeOrder.finalAmount;
+        document.getElementById("payQr").src = activeOrder.qrCodeImgUrl;
+        
+        startCountdown(timeLeft); // นับถอยหลังต่อจากเวลาที่เหลือ
+        return true; 
+      } else {
+        // หมดเวลาแล้ว (ล้างตะกร้าและแจ้งเตือน)
+        alert("❌ หวยที่ท่านเลือกหมดเวลาชำระเงินแล้ว กรุณาทำรายการใหม่อีกครั้ง");
+        localStorage.removeItem('chokdee_active_order');
+        return false; 
+      }
+    }
+    return false;
   }
 
   function toggleDropdown(event) {
@@ -362,8 +402,9 @@
     document.getElementById("estPrice").innerText = price;
   }
 
-  function startCountdown() {
-    let timeLeft = 5 * 60; // ปรับเหลือ 5 นาที
+  // 🌟 ฟังก์ชันนับถอยหลัง ปรับให้รับค่าวินาทีที่เหลือได้
+  function startCountdown(durationSeconds) {
+    let timeLeft = durationSeconds; 
     const timerDisplay = document.getElementById("timerDisplay");
     
     clearInterval(countdownInterval);
@@ -379,6 +420,9 @@
         clearInterval(countdownInterval);
         document.getElementById("qrImageSection").style.display = "none";
         document.getElementById("expiredSection").style.display = "block";
+        
+        // ล้างความจำออเดอร์ทิ้งเมื่อเวลาหมด
+        localStorage.removeItem('chokdee_active_order'); 
       }
       timeLeft -= 1;
     }, 1000);
@@ -401,13 +445,25 @@
       const result = await response.json();
       
       if(result.status === "success") {
+        document.getElementById("searchAreaTop").style.display = "none";
         document.getElementById("summaryArea").style.display = "none";
         document.getElementById("ticketsArea").style.display = "none";
         
         document.getElementById("qrContainer").style.display = "block";
         document.getElementById("finalPriceText").innerText = result.finalAmount;
         document.getElementById("payQr").src = result.qrCodeImgUrl;
-        startCountdown(); 
+        
+        // 🌟 บันทึกสถานะออเดอร์ลง LocalStorage ทันทีที่จองสำเร็จ
+        const expireTime = Date.now() + (5 * 60 * 1000); // บวกเวลา 5 นาที (หน่วยเป็นมิลลิวินาที)
+        const activeOrder = {
+          finalAmount: result.finalAmount,
+          qrCodeImgUrl: result.qrCodeImgUrl,
+          expireTime: expireTime
+        };
+        localStorage.setItem('chokdee_active_order', JSON.stringify(activeOrder));
+        
+        startCountdown(5 * 60); // เริ่มนับที่ 5 นาที (300 วินาที)
+        
       } else if (result.status === "error") {
         alert(result.message);
         btnOrder.innerText = originalText;
