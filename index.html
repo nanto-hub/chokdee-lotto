@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>โชคดีล็อตเตอรี่</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f6f9; margin: 0; padding: 0; color: #333; }
+    
+    /* แถบหัวเว็บด้านบน */
+    .header-bar { background-color: #d9534f; color: white; padding: 15px; text-align: center; position: relative; font-size: 20px; font-weight: bold; }
+    
+    /* ⚙️ ปุ่มฟันเฟืองมุมบนซ้าย */
+    .setting-btn { position: absolute; left: 15px; top: 15px; color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; }
+    .setting-btn:hover { transform: rotate(45deg); }
+    
+    /* 📋 เมนูตัวเลือกเด้งย่อย (Dropdown Drop) */
+    .dropdown-menu { display: none; position: absolute; left: 15px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 150px; }
+    .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; }
+    .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
+
+    .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
+    
+    /* ส่วนค้นหาตัวเลข */
+    .search-box { display: flex; justify-content: space-between; margin-bottom: 15px; }
+    .search-input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
+    .btn-search { width: 26%; padding: 10px; background: #d9534f; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    
+    /* แสดงแผงหวย */
+    .ticket-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .ticket-item { border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #fafafa; text-align: center; }
+    .ticket-num { font-size: 22px; font-weight: bold; color: #333; }
+    .ticket-info { font-size: 12px; color: #777; margin: 5px 0; }
+    .btn-buy { width: 100%; padding: 8px; background: #0275d8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    
+    /* ตะกร้าสรุปยอด */
+    .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
+    .select-style { width: 100%; padding: 8px; border-radius: 4px; margin: 10px 0; }
+    .btn-order { width: 100%; padding: 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    
+    /* ส่วนหน้าต่างแก้ไขข้อมูลส่วนตัว */
+    .profile-section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: none; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+    .btn-save { width: 100%; padding: 12px; background-color: #28a745; border: none; color: white; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+    .btn-back { width: 100%; padding: 10px; background-color: #6c757d; border: none; color: white; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+
+    #qrContainer { text-align: center; margin-top: 20px; display: none; }
+    #qrContainer img { width: 220px; height: 220px; border: 1px solid #ccc; padding: 5px; background: #fff; }
+    .status-msg { text-align: center; font-size: 13px; color: #666; margin-bottom: 10px; background: #e9ecef; padding: 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <div class="header-bar">
+    <i class="fa-solid fa-gear setting-btn" onclick="toggleDropdown()"></i>
+    <span id="titleText">🎫 โชคดีล็อตเตอรี่</span>
+    
+    <div id="myDropdown" class="dropdown-menu">
+      <a href="#" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
+    </div>
+  </div>
+
+  <div class="main-container">
+    <div id="status" class="status-msg">กำลังเชื่อมต่อระบบ LINE...</div>
+
+    <div id="lottoSection">
+      <div class="search-box">
+        <input type="text" id="searchQ" class="search-input" placeholder="พิมพ์เลขท้ายที่ต้องการ..." maxlength="6">
+        <button class="btn-search" onclick="doSearch()">ค้นหา</button>
+      </div>
+
+      <div id="ticketsArea" class="ticket-list"></div>
+
+      <div id="summaryArea" class="order-summary">
+        <h3>🛒 ตะกร้าสินค้าของคุณ</h3>
+        <p>เลขที่เลือก: <span id="selectedLots" style="font-weight: bold; color: #d9534f;"></span></p>
+        <label style="font-weight: bold;">เลือกรูปแบบบริการ:</label>
+        <select id="shippingType" class="select-style" onchange="reCalculatePrice()">
+          <option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ 80 + บริการจัดเก็บ/ตรวจ 20 = 100 บ.)</option>
+          <option value="ส่งใบจริง">🚚 ส่งใบจริง (ใบละ 80 + บริการ 20 + ค่าส่งเหมา 40 บ.)</option>
+        </select>
+        <p style="font-size: 16px; font-weight: bold;">ยอดชำระสุทธิโดยประมาณ: <span id="estPrice" style="color: #28a745;">0</span> บาท</p>
+        <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ (รับ QR Code)</button>
+      </div>
+
+      <div id="qrContainer">
+        <h3 style="color: #28a745;">🎉 สร้างใบสั่งซื้อสำเร็จ!</h3>
+        <p style="color: #d9534f; font-weight: bold; font-size: 18px;">กรุณาโอนเงินยอดเป๊ะ ๆ : <span id="finalPriceText">0.00</span> บาท</p>
+        <img id="payQr" src="" alt="PromptPay QR">
+        <p style="font-weight: bold; margin-top: 10px; font-size: 14px;">💡 โอนเสร็จส่งรูปสลิปเข้าแชท LINE ร้านได้เลย บอทจะส่งรูปหวยใบจริงกลับคืนให้ครับ!</p>
+      </div>
+    </div>
+
+    <div id="profileSection" class="profile-section">
+      <form id="profileForm">
+        <input type="hidden" id="lineUserId">
+        <div class="form-group"><label>ชื่อ-นามสกุล (สำหรับจัดส่ง/ขึ้นเงิน)</label><input type="text" id="fullName" required></div>
+        <div class="form-group"><label>เบอร์โทรศัพท์</label><input type="tel" id="phone" required></div>
+        <div class="form-group"><label>ที่อยู่จัดส่งสลากใบจริง</label><textarea id="address" required></textarea></div>
+        <div class="form-group"><label>ธนาคารของคุณ (สำหรับโอนเงินรางวัล)</label><input type="text" id="bankName"></div>
+        <div class="form-group"><label>เลขที่บัญชีธนาคาร</label><input type="text" id="bankAccount"></div>
+        <button type="submit" class="btn-save">💾 บันทึกข้อมูลส่วนตัว</button>
+        <button type="button" class="btn-back" onclick="closeProfileSection()">⬅️ กลับหน้าแผงหวย</button>
+      </form>
+    </div>
+  </div>
+
+<script>
+  // 🔴 เปลี่ยนจุดนี้: นำ URL ของ Web App (Apps Script) ของพี่มาวางที่นี่ครับ
+  const BACKEND_URL = "https://script.google.com/macros/s/XXXX_YOUR_APPS_SCRIPT_URL_XXXX/exec"; 
+  // 🔴 เปลี่ยนจุดนี้: นำ LIFF ID หลักของคุณมาใส่ตรงนี้ครับ
+  const LIFF_ID = "YOUR_LIFF_MAIN_ID"; 
+
+  let myLineId = "";
+  let cart = [];
+
+  async function startLiff() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      const profile = await liff.getProfile();
+      myLineId = profile.userId;
+      document.getElementById("lineUserId").value = myLineId;
+      document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
+      doSearch();
+    } catch (e) { console.error(e); }
+  }
+
+  // เปิด-ปิด เมนูฟันเฟือง
+  function toggleDropdown() {
+    const dropdown = document.getElementById("myDropdown");
+    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+  }
+
+  // สลับไปหน้า ข้อมูลส่วนตัว และดึงข้อมูลเดิมจากชีทมาโชว์ทันที
+  async function openProfileSection() {
+    toggleDropdown();
+    document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
+    
+    // ยิงไปถามหลังบ้านเพื่อเอาประวัติลูกค้าเก่า
+    const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}`);
+    const result = await response.json();
+    
+    document.getElementById("lottoSection").style.display = "none";
+    document.getElementById("profileSection").style.display = "block";
+    document.getElementById("titleText").innerText = "👤 ข้อมูลส่วนตัวของคุณ";
+    
+    if (result.status === "found") {
+      document.getElementById("fullName").value = result.data.fullName || "";
+      document.getElementById("phone").value = result.data.phone || "";
+      document.getElementById("address").value = result.data.address || "";
+      document.getElementById("bankName").value = result.data.bankName || "";
+      document.getElementById("bankAccount").value = result.data.bankAccount || "";
+      document.getElementById("status").innerText = "⚙️ ดึงข้อมูลเดิมสำเร็จ แก้ไขข้อมูลแล้วกดบันทึกได้เลยครับ";
+    } else {
+      document.getElementById("status").innerText = "✨ สมาชิกใหม่ กรอกข้อมูลแล้วกดบันทึกได้เลยครับ";
+    }
+  }
+
+  // กลับไปหน้าเลือกหวย
+  function closeProfileSection() {
+    document.getElementById("profileSection").style.display = "none";
+    document.getElementById("lottoSection").style.display = "block";
+    document.getElementById("titleText").innerText = "🎫 โชคดีล็อตเตอรี่";
+    document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
+  }
+
+  // ส่งข้อมูลโปรไฟล์ไปบันทึกทับ/ลงทะเบียนใหม่
+  document.getElementById("profileForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    document.getElementById("status").innerText = "⏳ กำลังบันทึกข้อมูลประวัติของคุณ...";
+    const formData = {
+      lineUserId: myLineId,
+      fullName: document.getElementById("fullName").value,
+      phone: document.getElementById("phone").value,
+      address: document.getElementById("address").value,
+      bankName: document.getElementById("bankName").value,
+      bankAccount: document.getElementById("bankAccount").value
+    };
+    try {
+      const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "saveProfile", data: formData }) });
+      const resData = await response.json();
+      alert(resData.message);
+      closeProfileSection();
+    } catch (err) { alert("❌ บันทึกข้อมูลไม่สำเร็จ"); }
+  });
+
+  // ค้นหาหวย
+  async function doSearch() {
+    const q = document.getElementById("searchQ").value;
+    const res = await fetch(`${BACKEND_URL}?action=search&q=${q}`);
+    const data = await res.json();
+    let html = "";
+    if(data.length === 0) {
+      html = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>";
+    } else {
+      data.forEach(item => {
+        html += `
+          <div class="ticket-item">
+            <div class="ticket-num">${item.ticketId}</div>
+            <div class="ticket-info">งวด: ${item.drawDate} | ชุด: ${item.setNo}</div>
+            <button class="btn-buy" onclick="addToCart('${item.ticketId}')">เลือกใบนี้</button>
+          </div>`;
+      });
+    }
+    document.getElementById("ticketsArea").innerHTML = html;
+  }
+
+  function addToCart(id) {
+    if(!cart.includes(id)) cart.push(id);
+    document.getElementById("summaryArea").style.display = "block";
+    document.getElementById("selectedLots").innerText = cart.join(", ");
+    reCalculatePrice();
+  }
+
+  function reCalculatePrice() {
+    const type = document.getElementById("shippingType").value;
+    let price = cart.length * 80 + (cart.length * 20);
+    if (type === "ส่งใบจริง") price += 40;
+    document.getElementById("estPrice").innerText = price;
+  }
+
+  async function submitOrder() {
+    if(cart.length === 0) return;
+    const type = document.getElementById("shippingType").value;
+    const postData = { action: "createOrder", data: { lineUserId: myLineId, tickets: cart, shippingType: type } };
+    const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify(postData) });
+    const result = await response.json();
+    if(result.status === "success") {
+      document.getElementById("summaryArea").style.display = "none";
+      document.getElementById("ticketsArea").style.display = "none";
+      document.getElementById("qrContainer").style.display = "block";
+      document.getElementById("finalPriceText").innerText = result.finalAmount;
+      document.getElementById("payQr").src = result.qrCodeImgUrl;
+    }
+  }
+
+  // ปิดหน้าต่าง Dropdown อัตโนมัติเมื่อกดคลิกพื้นที่อื่น
+  window.onclick = function(event) {
+    if (!event.target.matches('.setting-btn')) {
+      const dropdowns = document.getElementsByClassName("dropdown-menu");
+      for (let i = 0; i < dropdowns.length; i++) {
+        let openDropdown = dropdowns[i];
+        if (openDropdown.style.display === "block") openDropdown.style.display = "none";
+      }
+    }
+  }
+
+  window.onload = startLiff;
+</script>
+</body>
+</html>
