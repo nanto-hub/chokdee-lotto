@@ -27,8 +27,8 @@
     .ticket-item { border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #fafafa; text-align: center; position: relative; }
     .ticket-num { font-size: 22px; font-weight: bold; color: #333; }
     .ticket-info { font-size: 12px; color: #777; margin: 5px 0; }
-    
     .ticket-qty-badge { display: inline-block; background-color: #f0ad4e; color: white; padding: 2px 8px; font-size: 12px; font-weight: bold; border-radius: 12px; margin-bottom: 8px; }
+    
     .btn-buy { width: 100%; padding: 8px; background: #0275d8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     .btn-buy:disabled { background: #ccc; cursor: not-allowed; }
 
@@ -123,8 +123,8 @@
   </div>
 
 <script>
-  // 🟢 ลิงก์เชื่อมโยงไปยัง Apps Script หลังบ้านตัวปัจจุบันของพี่ชำนาญ
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzTFemUOg_o6py1jabtk-QvcpFWKhs0kDPtIzqaE5ysGEaR-EFDugbGlpD5860P5EL-ww/exec"; 
+  // 🟢 ยืนยัน URL ฝั่งหลังบ้าน และ LIFF ID
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyS3nRUBYU2znpM59hKEfsXgQucJcCJtVgZ0wG8bOPwfGFju6IU5-0N8sB61NWef5ALDA/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
@@ -139,7 +139,9 @@
       myLineId = profile.userId;
       document.getElementById("lineUserId").value = myLineId;
       document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
-      doSearch(); // เรียกค้นหาเพื่อดึงหวย 5 ใบที่มีมาพ่นลงจอออโต้ตอนเปิดเว็บ
+      
+      // เรียกข้อมูลทันทีเมื่อเปิดแอป
+      doSearch(); 
     } catch (e) { 
       console.error(e); 
       document.getElementById("status").innerText = "❌ เชื่อมต่อระบบ LINE LIFF ล้มเหลว";
@@ -152,12 +154,13 @@
     dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
   }
 
-  // 🟢 แก้ไขจุดผิดพลาดที่ 1: ดึงโปรไฟล์ขึ้นจอแบบแยกโครงสร้างออบเจกต์ได้อย่างแม่นยำ ข้อมูลเก่าเด้งโชว์แน่นอน
   async function openProfileSection() {
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
     try {
-      const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}`);
+      // 🔥 เพิ่ม Date.now() ต่อท้ายลิงก์ เพื่อทะลวงแคชของมือถือให้ดึงข้อมูลใหม่เสมอ
+      const noCache = Date.now();
+      const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}&_t=${noCache}`);
       const result = await response.json();
       
       document.getElementById("lottoSection").style.display = "none";
@@ -214,17 +217,17 @@
     } catch (err) { alert("❌ บันทึกข้อมูลไม่สำเร็จ"); }
   });
 
-  // 🟢 แก้ไขจุดผิดพลาดที่ 2: ดึงอาร์เรย์หวยสลากออกจากห่อหุ้ม Object ของระบบใหม่ ดึงเลขขึ้นครบและจำนวนใบรายงานตรงเป๊ะ
   async function doSearch() {
     try {
+      document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
       const q = document.getElementById("searchQ").value;
-      const res = await fetch(`${BACKEND_URL}?action=search&q=${q}`);
+      
+      // 🔥 เพิ่ม Date.now() บังคับให้แอป LINE มือถือต้องดึงค่าสดจาก Google Sheet ห้ามเอาข้อมูลเก่ามาแสดง
+      const noCache = Date.now();
+      const res = await fetch(`${BACKEND_URL}?action=search&q=${q}&_t=${noCache}`);
       const responseData = await res.json();
       
-      // ดึงค่านับสะสมยอดจากช่อง .totalInStock ที่หลังบ้านคำนวณส่งมาให้
       document.getElementById("totalTicketsCount").innerText = responseData.totalInStock || 0;
-      
-      // แกะกล่องเอาเฉพาะอาร์เรย์รายชื่อสลากในช่อง .tickets ออกมาประมวลผลวาดแผงหวย
       rawTicketsData = responseData.tickets || [];
       
       let html = "";
@@ -266,7 +269,7 @@
       document.getElementById("ticketsArea").innerHTML = html;
     } catch (e) {
       console.error(e);
-      document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center; color:red;'>❌ ดึงข้อมูลแผงหวยไม่สำเร็จ</p>";
+      document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center; color:red;'>❌ ดึงข้อมูลแผงหวยไม่สำเร็จ โปรดลองใหม่</p>";
     }
   }
 
@@ -352,6 +355,9 @@
     if(cart.length === 0) return;
     const type = document.getElementById("shippingType").value;
     let ticketIds = cart.map(item => item.ticketId);
+    
+    // แจ้งสถานะกำลังโหลด
+    document.querySelector(".btn-order").innerText = "⏳ กำลังสร้างใบสั่งซื้อ...";
     
     const postData = { action: "createOrder", data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } };
     const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify(postData) });
