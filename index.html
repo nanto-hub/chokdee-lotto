@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>โชคดีล็อตเตอรี่ออนไลน์</title>
-    <!-- นำเข้า Tailwind CSS สำหรับการจัดหน้าจอที่สวยงามและรองรับมือถือ -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- นำเข้า LINE LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { font-family: 'Chakra Petch', sans-serif; }
@@ -16,21 +14,18 @@
 </head>
 <body class="bg-slate-100 min-h-screen pb-10">
 
-    <!-- ส่วนหัวของแอป (Header) -->
-    <header class="bg-gradient-to-r from-red-600 to-darkred-800 text-white p-4 shadow-md text-center sticky top-0 z-50">
+    <header class="bg-gradient-to-r from-red-600 to-red-800 text-white p-4 shadow-md text-center sticky top-0 z-50">
         <h1 class="text-xl font-bold tracking-wide">🔴 โชคดีล็อตเตอรี่</h1>
         <p class="text-xs opacity-90">ระบบซื้อ-ขายสลากอัตโนมัติ 24 ชั่วโมง</p>
     </header>
 
     <div class="max-w-md mx-auto px-4 mt-4">
         
-        <!-- 1. หน้าจอโหลดระบบ (Loading Screen) -->
         <div id="loadingView" class="text-center py-20">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
             <p class="mt-4 text-gray-600">กำลังเชื่อมต่อระบบ LINE...</p>
         </div>
 
-        <!-- 2. หน้าจอลงทะเบียนลูกค้าใหม่ (Register Form) -->
         <div id="registerView" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 text-center text-red-600">📝 ลงทะเบียนผู้ซื้อครั้งแรก</h2>
             <p class="text-xs text-gray-500 mb-4 text-center">*ข้อมูลนี้ใช้สำหรับส่งสลากใบจริงและโอนเงินรางวัลเมื่อท่านถูกรางวัลเท่านั้น</p>
@@ -70,9 +65,7 @@
             </div>
         </div>
 
-        <!-- 3. หน้าจอหลัก: ค้นหาและเลือกซื้อลอตเตอรี่ (Main Store View) -->
         <div id="storeView" class="hidden space-y-4">
-            <!-- กล่องค้นหาเลข -->
             <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                 <label class="block text-sm font-bold text-gray-700 mb-2">🔍 ค้นหาเลขเด็ดของคุณ</label>
                 <div class="flex gap-2">
@@ -81,15 +74,12 @@
                 </div>
             </div>
 
-            <!-- รายการสลากที่ค้นเจอ -->
             <div>
                 <h3 class="text-sm font-bold text-gray-500 mb-2">รายการสลากที่มีในสต็อก</h3>
                 <div id="ticketContainer" class="grid grid-cols-1 gap-3">
-                    <!-- โค้ด JavaScript จะเอาสลากมาแสดงตรงนี้ -->
-                </div>
+                    </div>
             </div>
             
-            <!-- ตะกร้าสินค้าและการชำระเงิน (จะแสดงเมื่อมีการเลือกเลข) -->
             <div id="cartBox" class="hidden bg-slate-900 text-white p-5 rounded-2xl shadow-xl fixed bottom-4 left-4 right-4 max-w-md mx-auto z-50">
                 <div class="flex justify-between items-center mb-3">
                     <div>
@@ -110,7 +100,6 @@
             </div>
         </div>
 
-        <!-- 4. หน้าจอแสดงผล QR Code จ่ายเงิน (Payment View) -->
         <div id="paymentView" class="hidden bg-white p-6 rounded-2xl shadow-md border text-center space-y-4">
             <div class="bg-green-50 text-green-700 p-3 rounded-xl font-bold text-sm">
                 🎉 จองล็อกเลขสำเร็จ! กรุณาโอนเงินภายใน 10 นาที
@@ -119,7 +108,6 @@
             <h3 class="text-xl font-bold text-gray-800">ยอดเงินโอนสุทธิ: <span id="displayFinalAmount" class="text-red-600 font-extrabold text-2xl"></span> บาท</h3>
             <p class="text-xs text-amber-600 font-semibold">*กรุณาโอนให้ตรงเศษสตางค์เป๊ะๆ เพื่อให้ระบบตัดยอดขายทันที</p>
             
-            <!-- รูปภาพ QR Code PromptPay จาก API -->
             <div class="bg-slate-50 p-4 rounded-2xl inline-block border">
                 <img id="qrCodeImg" src="" alt="PromptPay QR Code" class="mx-auto max-w-[220px]">
             </div>
@@ -137,18 +125,15 @@
 
     </div>
 
-    <!-- ==================== [ ส่วนควบคุมคำสั่งทำงาน JavaScript ] ==================== -->
     <script>
-        // 🚨 สำคัญ: นำ URL เว็บแอปที่ได้จากการ Deploy Google Apps Script ตัวปรับปรุงใหม่มาวางตรงนี้
         const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbwYKn5Tha-ya849Op_u1RdGz4ZQ2K3dZQMford4SSNtQYOgMFU9_pppeEjwqUDVuCts6A/exec"; 
         
         let userLineId = "";
         let selectedTickets = [];
 
-        // เริ่มต้นระบบ LINE LIFFเมื่อเปิดหน้าจอ
+        // เริ่มต้นระบบ LINE LIFF เมื่อเปิดหน้าจอ
         async function initLiff() {
             try {
-                // เปลี่ยนรหัส LIFF ID ตรงนี้ให้ตรงกับใน LINE Developers Console ของคุณ
                 await liff.init({ liffId: "2010122368-FLjBLYl5" });
                 if (!liff.isLoggedIn()) {
                     liff.login();
@@ -156,10 +141,8 @@
                     const profile = await liff.getProfile();
                     userLineId = profile.userId;
                     
-                    // เมื่อได้ LINE ID แล้ว ให้ดึงข้อมูลสลากทั้งหมดมาแสดงเริ่มต้นทันที
-                    document.getElementById('loadingView').classList.add('hidden');
-                    document.getElementById('storeView').classList.remove('hidden');
-                    fetchTickets();
+                    // เพิ่มการตรวจสอบสถานะผู้ใช้งานจากระบบหลังบ้านก่อน
+                    checkUserStatus();
                 }
             } catch (error) {
                 console.error("LIFF Initialization failed", error);
@@ -168,14 +151,39 @@
         }
         window.onload = initLiff;
 
-        // ฟังก์ชันเรียกคลังสลากจากหลังบ้าน (Google Sheets แผ่นงาน Stock)
+        // ฟังก์ชันตรวจสอบประวัติสมาชิกเก่า-ใหม่
+        async function checkUserStatus() {
+            try {
+                const response = await fetch(`${BACKEND_API_URL}?action=checkUser&userId=${userLineId}`);
+                const result = await response.json();
+                
+                document.getElementById('loadingView').classList.add('hidden');
+                
+                if (result.registered === true) {
+                    // เป็นสมาชิกแล้ว ไปที่แผงลอตเตอรี่เลย
+                    document.getElementById('storeView').classList.remove('hidden');
+                    fetchTickets();
+                } else {
+                    // ยังไม่เคยลงทะเบียน ให้กรอกประวัติก่อน
+                    document.getElementById('registerView').classList.remove('hidden');
+                }
+            } catch (e) {
+                // หากระบบตรวจเช็คหลุดชั่วคราว ให้ปล่อยเข้าหน้าแผงขายไปก่อนเพื่อไม่ให้ระบบค้าง
+                document.getElementById('loadingView').classList.add('hidden');
+                document.getElementById('storeView').classList.remove('hidden');
+                fetchTickets();
+            }
+        }
+
+        // ฟังก์ชันเรียกคลังสลากจากหลังบ้าน (แก้ไขจุดบกพร่องเรื่อง Parameter ค้นหาแล้ว)
         async function fetchTickets() {
             const query = document.getElementById('searchQuery').value;
             const container = document.getElementById('ticketContainer');
             container.innerHTML = '<p class="text-center text-gray-400 py-6 text-sm">กำลังค้นหาเลขในคลัง...</p>';
             
             try {
-                const response = await fetch(`${BACKEND_API_URL}?action=search&q=${query}`);
+                // เพิ่มการส่ง &userId เพื่อความปลอดภัยและทำงานสัมพันธ์กับ Google Sheet หลังบ้าน
+                const response = await fetch(`${BACKEND_API_URL}?action=search&q=${query}&userId=${userLineId}`);
                 const tickets = await response.json();
                 
                 container.innerHTML = '';
@@ -191,7 +199,7 @@
                     card.innerHTML = `
                         <div>
                             <div class="text-2xl font-black tracking-widest text-slate-800">${t.ticketId}</div>
-                            <div class="text-xs text-gray-500 mt-1">งวด: ${t.drawDate.split('T')[0]} | ชุด: ${t.setNo}</div>
+                            <div class="text-xs text-gray-500 mt-1">งวด: ${t.drawDate ? t.drawDate.split('T')[0] : '-'} | ชุด: ${t.setNo}</div>
                             <div class="text-sm font-bold text-red-600 mt-0.5">ราคา 80.-</div>
                         </div>
                         <button onclick="toggleSelectTicket('${t.ticketId}')" class="px-4 py-2 rounded-xl text-xs font-bold transition ${isSelected ? 'bg-red-500 text-white' : 'bg-slate-800 text-white hover:bg-slate-900'}">
@@ -213,7 +221,7 @@
                 selectedTickets.push(ticketId);
             }
             updateCartTotal();
-            fetchTickets(); // อัปเดตสถานะปุ่มและสีการเลือกบนหน้าจอ
+            fetchTickets(); 
         }
 
         // อัปเดตยอดรวมในตะกร้า
@@ -233,11 +241,10 @@
             document.getElementById('cartTotal').innerText = ticketTotal + shippingFee;
         }
 
-        // กดปุ่มยืนยันการซื้อ (เช็คเงื่อนไขและส่งข้อมูลไปหลังบ้านเพื่อสร้างออเดอร์)
+        // กดปุ่มยืนยันการซื้อ
         async function checkoutOrder() {
             const shippingType = document.getElementById('shippingType').value;
             
-            // ปิดหน้าจอร้านค้าชั่วคราว แสดงหน้าโหลด
             document.getElementById('storeView').classList.add('hidden');
             document.getElementById('loadingView').classList.remove('hidden');
             
@@ -258,7 +265,6 @@
                 const result = await response.json();
                 
                 if (result.status === "success") {
-                    // นำข้อมูลออเดอร์มาโชว์ที่หน้าจ่ายเงิน
                     document.getElementById('displayOrderId').innerText = result.orderId;
                     document.getElementById('displayFinalAmount').innerText = result.finalAmount;
                     document.getElementById('qrCodeImg').src = result.qrCodeImgUrl;
@@ -266,7 +272,7 @@
                     document.getElementById('loadingView').classList.add('hidden');
                     document.getElementById('paymentView').classList.remove('hidden');
                 } else {
-                    alert("ทำรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+                    alert("ทำรายการไม่สำเร็จ: " + (result.message || "กรุณาลองใหมี่อีกครั้ง"));
                     location.reload();
                 }
             } catch (e) {
@@ -275,7 +281,7 @@
             }
         }
 
-        // ฟังก์ชันระบบลงทะเบียนสมาชิกลูกค้าใหม่ (เปิดไว้รองรับการเรียกใช้เพิ่มเติม)
+        // ฟังก์ชันระบบลงทะเบียนสมาชิกลูกค้าใหม่
         async function submitRegister() {
             const fullName = document.getElementById('regName').value;
             const phone = document.getElementById('regPhone').value;
@@ -303,13 +309,21 @@
                 }
             };
             
-            const response = await fetch(BACKEND_API_URL, { method: 'POST', body: JSON.stringify(regPayload) });
-            const result = await response.json();
-            
-            if(result.status === "success") {
-                document.getElementById('loadingView').classList.add('hidden');
-                document.getElementById('storeView').classList.remove('hidden');
-                fetchTickets();
+            try {
+                const response = await fetch(BACKEND_API_URL, { method: 'POST', body: JSON.stringify(regPayload) });
+                const result = await response.json();
+                
+                if(result.status === "success") {
+                    document.getElementById('loadingView').classList.add('hidden');
+                    document.getElementById('storeView').classList.remove('hidden');
+                    fetchTickets();
+                } else {
+                    alert("ลงทะเบียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+                    location.reload();
+                }
+            } catch(e) {
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล");
+                location.reload();
             }
         }
     </script>
