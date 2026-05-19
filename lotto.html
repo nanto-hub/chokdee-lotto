@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ค้นหาเลขเด็ด - โชคดีล็อตเตอรี่</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f4f6f9; padding: 15px; margin: 0; }
+    .shop-box { max-width: 480px; background: #fff; margin: 0 auto; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    h2 { text-align: center; color: #d9534f; margin-top: 0; }
+    .search-input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
+    .btn-search { width: 26%; padding: 10px; background: #d9534f; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    .ticket-list { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .ticket-item { border: 1px solid #eee; padding: 10px; border-radius: 8px; background: #fafafa; text-align: center; position: relative; }
+    .ticket-num { font-size: 20px; font-weight: bold; color: #333; }
+    .ticket-info { font-size: 12px; color: #777; margin: 5px 0; }
+    .btn-buy { width: 100%; padding: 8px; background: #0275d8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
+    .select-style { width: 100%; padding: 8px; border-radius: 4px; margin: 10px 0; }
+    .btn-order { width: 100%; padding: 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    #qrContainer { text-align: center; margin-top: 20px; display: none; }
+    #qrContainer img { width: 220px; height: 220px; border: 1px solid #ccc; padding: 5px; background: #fff; }
+  </style>
+</head>
+<body>
+
+<div class="shop-box">
+  <h2>🎫 โชคดีล็อตเตอรี่</h2>
+  
+  <div style="display: flex; justify-content: space-between;">
+    <input type="text" id="searchQ" class="search-input" placeholder="พิมพ์เลขท้ายที่ต้องการ..." maxlength="6">
+    <button class="btn-search" onclick="doSearch()">ค้นหา</button>
+  </div>
+
+  <div id="ticketsArea" class="ticket-list"></div>
+
+  <div id="summaryArea" class="order-summary">
+    <h3>🛒 ตะกร้าสินค้าของคุณ</h3>
+    <p>เลขที่เลือก: <span id="selectedLots" style="font-weight: bold; color: #d9534f;"></span></p>
+    <label style="font-weight: bold;">เลือกรูปแบบบริการ:</label>
+    <select id="shippingType" class="select-style" onchange="reCalculatePrice()">
+      <option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ 80 + บริการฝากจัดเก็บ/ตรวจ 20 = 100 บ.)</option>
+      <option value="ส่งใบจริง">🚚 ส่งใบจริง (ใบละ 80 + บริการ 20 + ค่าส่งเหมา 40 บ.)</option>
+    </select>
+    <p style="font-size: 16px; font-weight: bold;">ยอดชำระสุทธิโดยประมาณ: <span id="estPrice" style="color: #28a745;">0</span> บาท</p>
+    <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ (รับ QR Code)</button>
+  </div>
+
+  <div id="qrContainer">
+    <h3 style="color: #28a745;">🎉 สร้างใบสั่งซื้อสำเร็จ!</h3>
+    <p style="color: #d9534f; font-weight: bold; font-size: 18px;">กรุณาโอนเงินยอดเป๊ะ ๆ : <span id="finalPriceText">0.00</span> บาท</p>
+    <p style="font-size: 12px; color: #666;">(ระบบสุ่มเศษสตางค์เพื่อความเร็วในการตรวจสอบสลิปอัตโนมัติ)</p>
+    <img id="payQr" src="" alt="PromptPay QR">
+    <p style="font-weight: bold; margin-top: 10px; color: #333;">💡 โอนเสร็จแล้ว ส่งรูปสลิปเข้าไปในแชท LINE ร้านได้เลย บอทจะส่งรูปหวยใบจริงคืนให้ทันทีครับ!</p>
+  </div>
+</div>
+
+<script>
+  // 🔴 แก้ไข: ใส่ URL Web App ของคุณ
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyRH19EglScAhTxLYgEb9hkT5sUPzeIQ9hviJgK6zjffE88Zky24I5Lrgo72OwR3tICnQ/exec"; 
+  // 🔴 แก้ไข: ใส่ LIFF ID ของหน้าค้นหาเลขเด็ด
+  const LIFF_ID = "2010122368-FLjBLYl5"; 
+
+  let myLineId = "";
+  let cart = [];
+
+  async function startLiff() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      const profile = await liff.getProfile();
+      myLineId = profile.userId;
+      doSearch(); // เปิดหน้ามาให้โหลดเลขทั้งหมดโชว์ทันที
+    } catch (e) { console.error(e); }
+  }
+
+  async function doSearch() {
+    const q = document.getElementById("searchQ").value;
+    const res = await fetch(`${BACKEND_URL}?action=search&q=${q}`);
+    const data = await res.json();
+    
+    let html = "";
+    if(data.length === 0) {
+      html = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ขออภัย ไม่มีเลขนี้ในแผงครับ</p>";
+    } else {
+      data.forEach(item => {
+        html += `
+          <div class="ticket-item">
+            <div class="ticket-num">${item.ticketId}</div>
+            <div class="ticket-info">งวด: ${item.drawDate} | ชุด: ${item.setNo}</div>
+            <button class="btn-buy" onclick="addToCart('${item.ticketId}')">เลือกใบนี้</button>
+          </div>
+        `;
+      });
+    }
+    document.getElementById("ticketsArea").innerHTML = html;
+  }
+
+  function addToCart(id) {
+    if(!cart.includes(id)) { cart.push(id); }
+    document.getElementById("summaryArea").style.display = "block";
+    document.getElementById("selectedLots").innerText = cart.join(", ");
+    reCalculatePrice();
+  }
+
+  function reCalculatePrice() {
+    const type = document.getElementById("shippingType").value;
+    let price = cart.length * 80 + (cart.length * 20); // หวย 80 + บริการ 20
+    if (type === "ส่งใบจริง") { price += 40; } // บวกค่าส่งจัดส่ง
+    document.getElementById("estPrice").innerText = price;
+  }
+
+  async function submitOrder() {
+    if(cart.length === 0) return;
+    const type = document.getElementById("shippingType").value;
+    
+    const postData = { action: "createOrder", data: { lineUserId: myLineId, tickets: cart, shippingType: type } };
+    
+    const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify(postData) });
+    const result = await response.json();
+    
+    if(result.status === "success") {
+      document.getElementById("summaryArea").style.display = "none";
+      document.getElementById("ticketsArea").style.display = "none";
+      document.getElementById("qrContainer").style.display = "block";
+      document.getElementById("finalPriceText").innerText = result.finalAmount;
+      document.getElementById("payQr").src = result.qrCodeImgUrl;
+    }
+  }
+
+  window.onload = startLiff;
+</script>
+</body>
+</html>
