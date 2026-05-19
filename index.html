@@ -14,12 +14,12 @@
     .header-bar { background-color: #d9534f; color: white; padding: 15px; text-align: center; position: relative; font-size: 20px; font-weight: bold; }
     
     /* ⚙️ ปุ่มฟันเฟืองมุมบนซ้าย */
-    .setting-btn { position: absolute; left: 15px; top: 15px; color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; }
+    .setting-btn { position: absolute; left: 15px; top: 15px; color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; padding: 5px; }
     .setting-btn:hover { transform: rotate(45deg); }
     
     /* 📋 เมนูตัวเลือกเด้งย่อย (Dropdown Drop) */
     .dropdown-menu { display: none; position: absolute; left: 15px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 150px; }
-    .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; }
+    .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
 
     .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
@@ -56,7 +56,7 @@
 <body>
 
   <div class="header-bar">
-    <i class="fa-solid fa-gear setting-btn" onclick="toggleDropdown()"></i>
+    <i class="fa-solid fa-gear setting-btn" id="gearIcon" onclick="toggleDropdown(event)"></i>
     <span id="titleText">🎫 โชคดีล็อตเตอรี่</span>
     
     <div id="myDropdown" class="dropdown-menu">
@@ -67,7 +67,7 @@
   <div class="main-container">
     <div id="status" class="status-msg">กำลังเชื่อมต่อระบบ LINE...</div>
 
-    <div id="lottoSection">
+    <div id="lottoSection" style="display: block;">
       <div class="search-box">
         <input type="text" id="searchQ" class="search-input" placeholder="พิมพ์เลขท้ายที่ต้องการ..." maxlength="6">
         <button class="btn-search" onclick="doSearch()">ค้นหา</button>
@@ -110,9 +110,7 @@
   </div>
 
 <script>
-  // 🔴 เปลี่ยนจุดนี้: นำ URL ของ Web App (Apps Script) ของพี่มาวางที่นี่ครับ
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz1tb56iSwo6ojsIXRpNNgSEAmdFvu9I-tVSoepOmsiGlvJ24mn5OQSEmONH_KHiB-rcQ/exec"; 
-  // 🔴 แก้ไข: ใส่ LIFF ID ของหน้าค้นหาเลขเด็ด
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
@@ -127,37 +125,44 @@
       document.getElementById("lineUserId").value = myLineId;
       document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
       doSearch();
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e); 
+      document.getElementById("status").innerText = "❌ เชื่อมต่อระบบ LINE LIFF ล้มเหลว";
+    }
   }
 
   // เปิด-ปิด เมนูฟันเฟือง
-  function toggleDropdown() {
+  function toggleDropdown(event) {
+    if (event) event.stopPropagation();
     const dropdown = document.getElementById("myDropdown");
     dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
   }
 
   // สลับไปหน้า ข้อมูลส่วนตัว และดึงข้อมูลเดิมจากชีทมาโชว์ทันที
   async function openProfileSection() {
-    toggleDropdown();
+    document.getElementById("myDropdown").style.display = "none";
     document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
     
-    // ยิงไปถามหลังบ้านเพื่อเอาประวัติลูกค้าเก่า
-    const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}`);
-    const result = await response.json();
-    
-    document.getElementById("lottoSection").style.display = "none";
-    document.getElementById("profileSection").style.display = "block";
-    document.getElementById("titleText").innerText = "👤 ข้อมูลส่วนตัวของคุณ";
-    
-    if (result.status === "found") {
-      document.getElementById("fullName").value = result.data.fullName || "";
-      document.getElementById("phone").value = result.data.phone || "";
-      document.getElementById("address").value = result.data.address || "";
-      document.getElementById("bankName").value = result.data.bankName || "";
-      document.getElementById("bankAccount").value = result.data.bankAccount || "";
-      document.getElementById("status").innerText = "⚙️ ดึงข้อมูลเดิมสำเร็จ แก้ไขข้อมูลแล้วกดบันทึกได้เลยครับ";
-    } else {
-      document.getElementById("status").innerText = "✨ สมาชิกใหม่ กรอกข้อมูลแล้วกดบันทึกได้เลยครับ";
+    try {
+      const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}`);
+      const result = await response.json();
+      
+      document.getElementById("lottoSection").style.display = "none";
+      document.getElementById("profileSection").style.display = "block";
+      document.getElementById("titleText").innerText = "👤 ข้อมูลส่วนตัวของคุณ";
+      
+      if (result.status === "found") {
+        document.getElementById("fullName").value = result.data.fullName || "";
+        document.getElementById("phone").value = result.data.phone || "";
+        document.getElementById("address").value = result.data.address || "";
+        document.getElementById("bankName").value = result.data.bankName || "";
+        document.getElementById("bankAccount").value = result.data.bankAccount || "";
+        document.getElementById("status").innerText = "⚙️ ดึงข้อมูลเดิมสำเร็จ แก้ไขข้อมูลแล้วกดบันทึกได้เลยครับ";
+      } else {
+        document.getElementById("status").innerText = "✨ สมาชิกใหม่ กรอกข้อมูลแล้วกดบันทึกได้เลยครับ";
+      }
+    } catch (err) {
+      document.getElementById("status").innerText = "❌ ไม่สามารถโหลดข้อมูลส่วนตัวได้";
     }
   }
 
@@ -191,23 +196,27 @@
 
   // ค้นหาหวย
   async function doSearch() {
-    const q = document.getElementById("searchQ").value;
-    const res = await fetch(`${BACKEND_URL}?action=search&q=${q}`);
-    const data = await res.json();
-    let html = "";
-    if(data.length === 0) {
-      html = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>";
-    } else {
-      data.forEach(item => {
-        html += `
-          <div class="ticket-item">
-            <div class="ticket-num">${item.ticketId}</div>
-            <div class="ticket-info">งวด: ${item.drawDate} | ชุด: ${item.setNo}</div>
-            <button class="btn-buy" onclick="addToCart('${item.ticketId}')">เลือกใบนี้</button>
-          </div>`;
-      });
+    try {
+      const q = document.getElementById("searchQ").value;
+      const res = await fetch(`${BACKEND_URL}?action=search&q=${q}`);
+      const data = await res.json();
+      let html = "";
+      if(data.length === 0) {
+        html = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>";
+      } else {
+        data.forEach(item => {
+          html += `
+            <div class="ticket-item">
+              <div class="ticket-num">${item.ticketId}</div>
+              <div class="ticket-info">งวด: ${item.drawDate} | ชุด: ${item.setNo}</div>
+              <button class="btn-buy" onclick="addToCart('${item.ticketId}')">เลือกใบนี้</button>
+            </div>`;
+        });
+      }
+      document.getElementById("ticketsArea").innerHTML = html;
+    } catch (e) {
+      document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center; color:red;'>❌ ดึงข้อมูลแผงหวยไม่สำเร็จ</p>";
     }
-    document.getElementById("ticketsArea").innerHTML = html;
   }
 
   function addToCart(id) {
@@ -241,7 +250,7 @@
 
   // ปิดหน้าต่าง Dropdown อัตโนมัติเมื่อกดคลิกพื้นที่อื่น
   window.onclick = function(event) {
-    if (!event.target.matches('.setting-btn')) {
+    if (!event.target.matches('.setting-btn') && !event.target.matches('#gearIcon')) {
       const dropdowns = document.getElementsByClassName("dropdown-menu");
       for (let i = 0; i < dropdowns.length; i++) {
         let openDropdown = dropdowns[i];
