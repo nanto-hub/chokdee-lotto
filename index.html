@@ -93,11 +93,11 @@
   </div>
 
 <script>
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycby6AuOtY1Z3kMTzCQM8NEFBLFObGZB-FfpKieRXaeear-RCFvGN67vWhHaVAylExNcUSw/exec"; 
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz1tb56iSwo6ojsIXRpNNgSEAmdFvu9I-tVSoepOmsiGlvJ24mn5OQSEmONH_KHiB-rcQ/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
-  let cart = []; // เก็บอาร์เรย์ของออบเจกต์หวย {id: "123456", set: "01", key: "123456-01"}
+  let cart = []; 
 
   async function startLiff() {
     try {
@@ -170,19 +170,22 @@
     } catch (err) { alert("❌ บันทึกข้อมูลไม่สำเร็จ"); }
   });
 
-  // 🔥 ฟังก์ชันค้นหาหวย: ปรับโครงสร้างส่งตัวแปรคีย์ผสม (เลขสลาก + ชุด) ป้องกันหน้าจอรวมค่าซ้ำ
+  // 🔥 [แก้ไขจุดนี้] ฟังก์ชันวาดการ์ดหวยบนหน้าแผง: บังคับให้อ่านและวาดทุกใบแบบไม่ตัดกลุ่มเลขซ้ำ
   async function doSearch() {
     try {
       const q = document.getElementById("searchQ").value;
       const res = await fetch(`${BACKEND_URL}?action=search&q=${q}`);
       const data = await res.json();
       let html = "";
+      
       if(data.length === 0) {
         html = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>";
       } else {
+        // วาดแผงหวยออกมาทั้งหมดทุกแถวที่หลังบ้านส่งมาให้โดยไม่มีการล้างค่าซ้ำ
         data.forEach(item => {
-          // สร้าง Unique Key ผสมระหว่างเลขหวยและชุด เช่น "123456_01"
+          // สร้างคีย์ระบุตัวตนเฉพาะใบ เช่น "123456_01" เพื่อแยกคนละชุดออกจากกันเด็ดขาด
           let uniqueKey = item.ticketId + "_" + item.setNo;
+          
           html += `
             <div class="ticket-item">
               <div class="ticket-num">${item.ticketId}</div>
@@ -198,7 +201,6 @@
   }
 
   function addToCart(ticketId, setNo, uniqueKey) {
-    // เช็คจากคีย์ผสมว่าเคยเลือกหรือยัง ป้องกันระบบมองเลขซ้ำคนละชุดเป็นใบเดียวกัน
     let isExist = cart.some(item => item.uniqueKey === uniqueKey);
     if (!isExist) {
       cart.push({ ticketId: ticketId, setNo: setNo, uniqueKey: uniqueKey });
@@ -206,7 +208,6 @@
     
     document.getElementById("summaryArea").style.display = "block";
     
-    // แสดงรายการสลากที่เลือกในตะกร้า (โชว์ทั้งเลขและชุดชัดเจน)
     let displayTexts = cart.map(item => `${item.ticketId} (ชุด ${item.setNo})`);
     document.getElementById("selectedLots").innerText = displayTexts.join(", ");
     reCalculatePrice();
@@ -223,7 +224,6 @@
     if(cart.length === 0) return;
     const type = document.getElementById("shippingType").value;
     
-    // สกัดเอาเฉพาะรหัสเลขสลากส่งกลับไปให้หลังบ้านบันทึกสต็อกเหมือนเดิม
     let ticketIds = cart.map(item => item.ticketId);
     
     const postData = { action: "createOrder", data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } };
