@@ -49,9 +49,13 @@
     
     .btn-save { width: 100%; padding: 12px; background-color: #28a745; border: none; color: white; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px; }
     .btn-back { width: 100%; padding: 10px; background-color: #6c757d; border: none; color: white; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+    
     #qrContainer { text-align: center; margin-top: 20px; display: none; }
     #qrContainer img { width: 220px; height: 220px; border: 1px solid #ccc; padding: 5px; background: #fff; }
     .status-msg { text-align: center; font-size: 13px; color: #666; margin-bottom: 10px; background: #e9ecef; padding: 6px; border-radius: 4px; }
+    
+    /* ⏱️ สไตล์กล่องแจ้งเวลานับถอยหลัง */
+    .timer-box { font-size: 18px; font-weight: bold; color: #d9534f; margin-top: 15px; background-color: #ffeeba; padding: 10px; border-radius: 8px; border: 1px solid #ffdf7e; }
   </style>
 </head>
 <body>
@@ -93,8 +97,18 @@
       <div id="qrContainer">
         <h3 style="color: #28a745;">🎉 สร้างใบสั่งซื้อสำเร็จ!</h3>
         <p style="color: #d9534f; font-weight: bold; font-size: 18px;">กรุณาโอนเงินยอดเป๊ะ ๆ : <span id="finalPriceText">0.00</span> บาท</p>
-        <img id="payQr" src="" alt="PromptPay QR">
-        <p style="font-weight: bold; margin-top: 10px; font-size: 14px;">💡 โอนเสร็จส่งรูปสลิปเข้าแชท LINE ร้านได้เลย บอทจะส่งรูปหวยใบจริงกลับคืนให้ครับ!</p>
+        
+        <div id="qrImageSection">
+          <img id="payQr" src="" alt="PromptPay QR">
+          <div class="timer-box">⏳ กรุณาชำระเงินภายใน: <span id="timerDisplay">10:00</span></div>
+          <p style="font-weight: bold; margin-top: 10px; font-size: 14px;">💡 โอนเสร็จส่งรูปสลิปเข้าแชท LINE ร้านได้เลย บอทจะตรวจและส่งรูปหวยใบจริงกลับให้ครับ!</p>
+        </div>
+        
+        <div id="expiredSection" style="display: none;">
+          <h3 style="color: #d9534f;">❌ หมดเวลาชำระเงิน!</h3>
+          <p style="font-size: 15px; margin-bottom: 20px;">ใบสั่งซื้อนี้ถูกยกเลิกอัตโนมัติเนื่องจากเกินเวลา 10 นาทีครับ<br>สลากของคุณถูกนำกลับไปวางแผงอีกครั้ง</p>
+          <button class="btn-back" onclick="location.reload()" style="background-color: #0275d8; padding: 12px; font-size: 16px;">🔄 กลับไปค้นหาเลขเด็ดใหม่</button>
+        </div>
       </div>
     </div>
 
@@ -123,13 +137,13 @@
   </div>
 
 <script>
-  // 🟢 ยืนยัน URL ฝั่งหลังบ้าน และ LIFF ID
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyS3nRUBYU2znpM59hKEfsXgQucJcCJtVgZ0wG8bOPwfGFju6IU5-0N8sB61NWef5ALDA/exec"; 
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyb0wCyihw0xzv-WYY5u4KXSHi9IFBEtWRhV2xUTbgHryyLfPTX3zi73LXaNuuFkI6AAw/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
   let cart = []; 
   let rawTicketsData = []; 
+  let countdownInterval; // ตัวแปรสำหรับนาฬิกานับถอยหลัง
 
   async function startLiff() {
     try {
@@ -139,8 +153,6 @@
       myLineId = profile.userId;
       document.getElementById("lineUserId").value = myLineId;
       document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
-      
-      // เรียกข้อมูลทันทีเมื่อเปิดแอป
       doSearch(); 
     } catch (e) { 
       console.error(e); 
@@ -158,7 +170,6 @@
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
     try {
-      // 🔥 เพิ่ม Date.now() ต่อท้ายลิงก์ เพื่อทะลวงแคชของมือถือให้ดึงข้อมูลใหม่เสมอ
       const noCache = Date.now();
       const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}&_t=${noCache}`);
       const result = await response.json();
@@ -182,7 +193,6 @@
         document.getElementById("status").innerText = "✨ สมาชิกใหม่ กรอกข้อมูลแล้วกดบันทึกได้เลยครับ";
       }
     } catch (err) {
-      console.error(err);
       document.getElementById("status").innerText = "❌ ไม่สามารถโหลดข้อมูลส่วนตัวได้";
     }
   }
@@ -221,8 +231,6 @@
     try {
       document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
       const q = document.getElementById("searchQ").value;
-      
-      // 🔥 เพิ่ม Date.now() บังคับให้แอป LINE มือถือต้องดึงค่าสดจาก Google Sheet ห้ามเอาข้อมูลเก่ามาแสดง
       const noCache = Date.now();
       const res = await fetch(`${BACKEND_URL}?action=search&q=${q}&_t=${noCache}`);
       const responseData = await res.json();
@@ -241,11 +249,7 @@
       rawTicketsData.forEach(item => {
         let key = item.ticketId + "_" + item.drawDate;
         if (!groupedTickets[key]) {
-          groupedTickets[key] = {
-            ticketId: item.ticketId,
-            drawDate: item.drawDate,
-            allSets: []
-          };
+          groupedTickets[key] = { ticketId: item.ticketId, drawDate: item.drawDate, allSets: [] };
         }
         groupedTickets[key].allSets.push(item.setNo);
       });
@@ -265,11 +269,9 @@
             <button class="btn-buy" ${isButtonDisabled} onclick="clickSelectTicket('${group.ticketId}')">${buttonText}</button>
           </div>`;
       });
-      
       document.getElementById("ticketsArea").innerHTML = html;
     } catch (e) {
-      console.error(e);
-      document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center; color:red;'>❌ ดึงข้อมูลแผงหวยไม่สำเร็จ โปรดลองใหม่</p>";
+      document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center; color:red;'>❌ ดึงข้อมูลแผงหวยไม่สำเร็จ</p>";
     }
   }
 
@@ -326,7 +328,6 @@
     Object.values(grouped).forEach(group => {
       let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId).length;
       let availableCount = group.allSets.length - selectedInCartCount;
-      
       let items = document.getElementsByClassName("ticket-item");
       for(let i=0; i<items.length; i++) {
         let numText = items[i].getElementsByClassName("ticket-num")[0].innerText;
@@ -351,23 +352,64 @@
     document.getElementById("estPrice").innerText = price;
   }
 
+  // ⏱️ ฟังก์ชันสั่งรันนาฬิกานับถอยหลัง
+  function startCountdown() {
+    let timeLeft = 10 * 60; // 10 นาที (ปรับค่าตรงนี้ได้ถ้าต้องการเปลี่ยนเวลา)
+    const timerDisplay = document.getElementById("timerDisplay");
+    
+    clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      let minutes = Math.floor(timeLeft / 60);
+      let seconds = timeLeft % 60;
+      
+      minutes = minutes < 10 ? "0" + minutes : minutes;
+      seconds = seconds < 10 ? "0" + seconds : seconds;
+      timerDisplay.innerText = `${minutes}:${seconds}`;
+      
+      if (timeLeft <= 0) {
+        clearInterval(countdownInterval);
+        // เมื่อเวลาเหลือ 0 จะซ่อน QR Code แล้วโชว์หน้าหมดเวลาแทน
+        document.getElementById("qrImageSection").style.display = "none";
+        document.getElementById("expiredSection").style.display = "block";
+      }
+      timeLeft -= 1;
+    }, 1000);
+  }
+
   async function submitOrder() {
     if(cart.length === 0) return;
     const type = document.getElementById("shippingType").value;
     let ticketIds = cart.map(item => item.ticketId);
     
-    // แจ้งสถานะกำลังโหลด
-    document.querySelector(".btn-order").innerText = "⏳ กำลังสร้างใบสั่งซื้อ...";
+    const btnOrder = document.querySelector(".btn-order");
+    const originalText = btnOrder.innerText;
+    btnOrder.innerText = "⏳ กำลังสร้างใบสั่งซื้อ...";
+    btnOrder.disabled = true;
     
     const postData = { action: "createOrder", data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } };
-    const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify(postData) });
-    const result = await response.json();
-    if(result.status === "success") {
-      document.getElementById("summaryArea").style.display = "none";
-      document.getElementById("ticketsArea").style.display = "none";
-      document.getElementById("qrContainer").style.display = "block";
-      document.getElementById("finalPriceText").innerText = result.finalAmount;
-      document.getElementById("payQr").src = result.qrCodeImgUrl;
+    
+    try {
+      const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify(postData) });
+      const result = await response.json();
+      
+      if(result.status === "success") {
+        document.getElementById("summaryArea").style.display = "none";
+        document.getElementById("ticketsArea").style.display = "none";
+        
+        // โชว์หน้า QR Code พร้อมเริ่มนับเวลาถอยหลัง 10 นาทีทันที
+        document.getElementById("qrContainer").style.display = "block";
+        document.getElementById("finalPriceText").innerText = result.finalAmount;
+        document.getElementById("payQr").src = result.qrCodeImgUrl;
+        startCountdown(); 
+      } else {
+        alert("❌ เกิดข้อผิดพลาดในการสร้างใบสั่งซื้อ กรุณาลองใหม่ครับ");
+        btnOrder.innerText = originalText;
+        btnOrder.disabled = false;
+      }
+    } catch (e) {
+      alert("❌ ไม่สามารถเชื่อมต่อกับระบบหลังบ้านได้");
+      btnOrder.innerText = originalText;
+      btnOrder.disabled = false;
     }
   }
 
