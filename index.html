@@ -12,6 +12,14 @@
     .header-bar { background-color: #d9534f; color: white; padding: 15px; text-align: center; position: relative; font-size: 20px; font-weight: bold; }
     .setting-btn { position: absolute; left: 15px; top: 15px; color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; padding: 5px; }
     .setting-btn:hover { transform: rotate(45deg); }
+    
+    /* 🌟 สไตล์สำหรับป้ายสถานะร้าน และเวลานับถอยหลัง */
+    .store-status-container { position: absolute; right: 15px; top: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .store-badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: bold; color: white; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .bg-open { background-color: #28a745; border: 1px solid #1e7e34; }
+    .bg-closed { background-color: #6c757d; border: 1px solid #545b62; }
+    .close-timer { font-size: 10px; color: #fff; font-weight: normal; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; display: none; }
+
     .dropdown-menu { display: none; position: absolute; left: 15px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 150px; }
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
@@ -57,6 +65,8 @@
     
     .timer-box { font-size: 18px; font-weight: bold; color: #d9534f; margin-top: 15px; background-color: #ffeeba; padding: 10px; border-radius: 8px; border: 1px solid #ffdf7e; }
     .alert-box { background-color: #ffe6e6; color: #cc0000; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ff9999; font-size: 14px; font-weight: 500; }
+    
+    .closed-store-box { grid-column: span 2; text-align:center; padding: 30px; background: #fff; border-radius: 8px; border: 1px solid #f5c6cb; margin-top: 20px;}
   </style>
 </head>
 <body>
@@ -64,6 +74,12 @@
   <div class="header-bar">
     <i class="fa-solid fa-gear setting-btn" id="gearIcon" onclick="toggleDropdown(event)"></i>
     <span id="titleText">🎫 โชคดีล็อตเตอรี่</span>
+    
+    <div class="store-status-container">
+      <span id="storeStatusBadge" class="store-badge">...</span>
+      <span id="storeCloseTimer" class="close-timer"></span>
+    </div>
+    
     <div id="myDropdown" class="dropdown-menu">
       <a href="#" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
     </div>
@@ -89,10 +105,8 @@
         <div id="selectedLotsContainer" class="cart-tags-container"></div>
         
         <label style="font-weight: bold; margin-top: 10px; display: block;">เลือกรูปแบบบริการ:</label>
-        <select id="shippingType" class="select-style" onchange="reCalculatePrice()">
-          <option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ 80 + บริการจัดเก็บ/ตรวจ 20 = 100 บ.)</option>
-          <option value="ส่งใบจริง">🚚 ส่งใบจริง (ใบละ 80 + บริการ 20 + ค่าส่งเหมา 40 บ.)</option>
-        </select>
+        <select id="shippingType" class="select-style" onchange="reCalculatePrice()"></select>
+        
         <p style="font-size: 16px; font-weight: bold;">ยอดชำระสุทธิโดยประมาณ: <span id="estPrice" style="color: #28a745;">0</span> บาท</p>
         <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ (รับ QR Code)</button>
       </div>
@@ -148,10 +162,13 @@
   // ==========================================
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbxwZbRWR958Tlrif3SV6Tw9Is0NcQWiWWpjss4XqVD64Szvp6oQuEOUlnAfwKe7RuJUsQ/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
-let myLineId = "";
+
+  let myLineId = "";
   let cart = []; 
   let rawTicketsData = []; 
   let countdownInterval; 
+  let storeClosingInterval; // 🌟 ตัวแปรสำหรับนาฬิกานับเวลาร้านปิด
+  let storeConfig = null; 
 
   async function startLiff() {
     try {
@@ -163,10 +180,8 @@ let myLineId = "";
       document.getElementById("lineUserId").value = myLineId;
       document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
       
-      // 🌟 เช็คว่ามีออเดอร์ค้างจ่ายอยู่ในระบบหรือไม่
       const hasPendingOrder = checkActiveOrder();
       
-      // ถ้าไม่มีออเดอร์ค้าง ค่อยโหลดแผงหวยตามปกติ
       if (!hasPendingOrder) {
         doSearch(); 
       }
@@ -177,17 +192,14 @@ let myLineId = "";
     }
   }
 
-  // 🌟 ฟังก์ชันใหม่: ตรวจสอบสถานะออเดอร์จาก LocalStorage
   function checkActiveOrder() {
     const orderStr = localStorage.getItem('chokdee_active_order');
     if (orderStr) {
       const activeOrder = JSON.parse(orderStr);
       const now = Date.now();
-      // คำนวณเวลาที่เหลือเป็นวินาที
       const timeLeft = Math.floor((activeOrder.expireTime - now) / 1000);
 
       if (timeLeft > 0) {
-        // ยังไม่หมดเวลา (ดึงหน้า QR Code กลับมา)
         alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินก่อนทำรายการใหม่ครับ");
         
         document.getElementById("searchAreaTop").style.display = "none";
@@ -198,10 +210,9 @@ let myLineId = "";
         document.getElementById("finalPriceText").innerText = activeOrder.finalAmount;
         document.getElementById("payQr").src = activeOrder.qrCodeImgUrl;
         
-        startCountdown(timeLeft); // นับถอยหลังต่อจากเวลาที่เหลือ
+        startCountdown(timeLeft); 
         return true; 
       } else {
-        // หมดเวลาแล้ว (ล้างตะกร้าและแจ้งเตือน)
         alert("❌ หวยที่ท่านเลือกหมดเวลาชำระเงินแล้ว กรุณาทำรายการใหม่อีกครั้ง");
         localStorage.removeItem('chokdee_active_order');
         return false; 
@@ -277,6 +288,44 @@ let myLineId = "";
     } catch (err) { alert("❌ บันทึกข้อมูลไม่สำเร็จ"); }
   });
 
+  // 🌟 ฟังก์ชันนับถอยหลังร้านปิด
+  function startStoreClosingTimer(closeTimeStr) {
+    clearInterval(storeClosingInterval);
+    const timerElem = document.getElementById("storeCloseTimer");
+    timerElem.style.display = "block";
+
+    // ดึงชั่วโมงและนาทีที่ต้องปิดร้าน
+    const [closeHour, closeMin] = closeTimeStr.split(":").map(Number);
+
+    storeClosingInterval = setInterval(() => {
+      const now = new Date();
+      const closeDate = new Date();
+      closeDate.setHours(closeHour, closeMin, 0, 0);
+
+      // คำนวณความต่างของเวลาเป็นมิลลิวินาที
+      let diffMs = closeDate - now;
+
+      if (diffMs <= 0) {
+        clearInterval(storeClosingInterval);
+        timerElem.innerText = "หมดเวลาทำการแล้ว";
+        // หน่วงเวลาแปบนึง แล้วรีเฟรชหน้าเพื่อให้ระบบตัดเข้าร้านปิด
+        setTimeout(() => location.reload(), 2000); 
+        return;
+      }
+
+      // แปลงเป็นชั่วโมง นาที วินาที
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+      let timeText = "ปิดใน ";
+      if (hours > 0) timeText += `${hours}ช. `;
+      timeText += `${mins}น. ${secs}วิ.`;
+      
+      timerElem.innerText = timeText;
+    }, 1000);
+  }
+
   async function doSearch() {
     try {
       document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
@@ -285,6 +334,44 @@ let myLineId = "";
       const res = await fetch(`${BACKEND_URL}?action=search&q=${q}&_t=${noCache}`);
       const responseData = await res.json();
       
+      storeConfig = responseData.config;
+      
+      // อัปเดตป้ายสถานะมุมขวาบน
+      const badge = document.getElementById("storeStatusBadge");
+      const timerBadge = document.getElementById("storeCloseTimer");
+      
+      if (storeConfig) {
+        badge.style.display = "inline-block";
+        if (storeConfig.isOpenNow) {
+          badge.innerText = "🟢 เปิดให้บริการ";
+          badge.className = "store-badge bg-open";
+          // 🌟 สั่งเริ่มนับถอยหลังถ้าร้านเปิด
+          startStoreClosingTimer(storeConfig.closeTime);
+        } else {
+          badge.innerText = "🔴 ปิดทำการ";
+          badge.className = "store-badge bg-closed";
+          timerBadge.style.display = "none"; // ซ่อนเวลานับถอยหลังถ้าร้านปิดแล้ว
+          clearInterval(storeClosingInterval);
+        }
+      }
+      
+      if (storeConfig && !storeConfig.isOpenNow) {
+        document.getElementById("searchAreaTop").style.display = "none";
+        document.getElementById("ticketsArea").innerHTML = `
+          <div class="closed-store-box">
+            <i class="fa-solid fa-store-slash" style="font-size: 40px; color: #d9534f; margin-bottom:15px;"></i>
+            <h3 style="color: #d9534f; margin-top:0;">ขณะนี้ร้านปิดทำการ</h3>
+            <p style="font-size: 16px; color: #555;">เปิดให้บริการเวลา<br><b>${storeConfig.openTime} - ${storeConfig.closeTime} น.</b></p>
+          </div>
+        `;
+        return;
+      }
+      
+      document.getElementById("shippingType").innerHTML = `
+        <option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>
+        <option value="ส่งใบจริง">🚚 ส่งใบจริง (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} + ค่าส่งเหมา ${storeConfig.feeShipping} บ.)</option>
+      `;
+
       document.getElementById("totalTicketsCount").innerText = responseData.totalInStock || 0;
       rawTicketsData = responseData.tickets || [];
       
@@ -396,13 +483,18 @@ let myLineId = "";
   }
 
   function reCalculatePrice() {
+    if (!storeConfig) return; 
     const type = document.getElementById("shippingType").value;
-    let price = cart.length * 80 + (cart.length * 20);
-    if (type === "ส่งใบจริง") price += 40;
+    
+    let price = (cart.length * storeConfig.ticketPrice) + (cart.length * storeConfig.feeDeposit);
+    
+    if (type === "ส่งใบจริง") {
+      price += storeConfig.feeShipping;
+    }
+    
     document.getElementById("estPrice").innerText = price;
   }
 
-  // 🌟 ฟังก์ชันนับถอยหลัง ปรับให้รับค่าวินาทีที่เหลือได้
   function startCountdown(durationSeconds) {
     let timeLeft = durationSeconds; 
     const timerDisplay = document.getElementById("timerDisplay");
@@ -421,7 +513,6 @@ let myLineId = "";
         document.getElementById("qrImageSection").style.display = "none";
         document.getElementById("expiredSection").style.display = "block";
         
-        // ล้างความจำออเดอร์ทิ้งเมื่อเวลาหมด
         localStorage.removeItem('chokdee_active_order'); 
       }
       timeLeft -= 1;
@@ -453,8 +544,7 @@ let myLineId = "";
         document.getElementById("finalPriceText").innerText = result.finalAmount;
         document.getElementById("payQr").src = result.qrCodeImgUrl;
         
-        // 🌟 บันทึกสถานะออเดอร์ลง LocalStorage ทันทีที่จองสำเร็จ
-        const expireTime = Date.now() + (5 * 60 * 1000); // บวกเวลา 5 นาที (หน่วยเป็นมิลลิวินาที)
+        const expireTime = Date.now() + (5 * 60 * 1000); 
         const activeOrder = {
           finalAmount: result.finalAmount,
           qrCodeImgUrl: result.qrCodeImgUrl,
@@ -462,7 +552,7 @@ let myLineId = "";
         };
         localStorage.setItem('chokdee_active_order', JSON.stringify(activeOrder));
         
-        startCountdown(5 * 60); // เริ่มนับที่ 5 นาที (300 วินาที)
+        startCountdown(5 * 60); 
         
       } else if (result.status === "error") {
         alert(result.message);
