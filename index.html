@@ -287,14 +287,14 @@
     document.getElementById("lottoSection").style.display = "block";
     document.getElementById("titleText").innerText = "🎫 โชคดีล็อตเตอรี่";
     document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
+    doSearch(); 
   }
 
   async function openMyTicketsSection() {
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("lottoSection").style.display = "none";
     document.getElementById("profileSection").style.display = "none";
-    document.getElementById("myTicketsSection").style.display = "block";
-    
+    document.getElementById("myTicketsSection").style.display = "block";    
     document.getElementById("titleText").innerText = "🎟️ สลากของคุณ";
     document.getElementById("status").innerText = "⏳ กำลังโหลดข้อมูลสลากของคุณ...";
     
