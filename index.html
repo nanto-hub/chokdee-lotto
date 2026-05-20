@@ -66,13 +66,12 @@
     .alert-box { background-color: #ffe6e6; color: #cc0000; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ff9999; font-size: 14px; font-weight: 500; }
     .closed-store-box { grid-column: span 2; text-align:center; padding: 30px; background: #fff; border-radius: 8px; border: 1px solid #f5c6cb; margin-top: 20px;}
     
-    /* 🌟 สไตล์ใหม่ สำหรับหน้าแสดงสลากของลูกค้า */
     .my-tickets-section { display: none; padding: 5px; }
     .my-ticket-card { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 12px; display: flex; gap: 12px; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03); margin-bottom: 12px; }
     .my-ticket-card img { width: 85px; height: auto; border-radius: 6px; border: 1px solid #eee; object-fit: cover; }
     .my-ticket-details { flex: 1; }
     .my-ticket-num { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 2px; }
-    .my-ticket-set { font-size: 13px; color: #666; margin-bottom: 8px; }
+    .my-ticket-set { font-size: 13px; color: #666; margin-bottom: 4px; }
     .btn-view-ticket { background: #17a2b8; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; }
   </style>
 </head>
@@ -124,8 +123,17 @@
           <img id="payQr" src="" alt="PromptPay QR">
           <div class="timer-box">⏳ กรุณาชำระเงินภายใน: <span id="timerDisplay">05:00</span></div>
           <p style="font-weight: bold; margin-top: 10px; font-size: 14px; color: #0056b3;">
-            💡 โอนเสร็จแล้วให้กด ( X ) ปิดหน้านี้ <br>และส่งรูปสลิปเข้าแชท LINE ร้านได้เลยครับ!
+            💡 บันทึกรูป QR Code แล้วไปสแกนจ่ายในแอปธนาคาร<br>โอนเสร็จแล้วกด "ปิดหน้านี้" เพื่อส่งสลิปได้เลยครับ
           </p>
+          
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button onclick="downloadQR()" style="flex: 1; padding: 12px; background-color: #0275d8; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <i class="fa-solid fa-download"></i> บันทึก QR Code
+            </button>
+            <button onclick="liff.closeWindow()" style="flex: 1; padding: 12px; background-color: #d9534f; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i> ปิดหน้านี้
+            </button>
+          </div>
         </div>
         <div id="expiredSection" style="display: none;">
           <h3 style="color: #d9534f;">❌ หมดเวลาชำระเงิน!</h3>
@@ -163,7 +171,10 @@
   </div>
 
 <script>
-  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzzZ2R7o8MOsVKVguxQdq8mKx-MiA6KVV-ZRO7KqZtOvXFOLOb63xT_rq1xvY8h6rPFPA/exec"; 
+  // ==========================================================
+  // ⚠️ กรุณาตรวจสอบและตั้งค่า LINK WEB APP และ LIFF ID 
+  // ==========================================================
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbysvxwAeASxNanIP5ZOKaw4NJKhUxo8_6usSQno6ZfdyKUKNYsBzKWfoqXW8wVoRf2lRg/exec"; 
   const LIFF_ID = "2010122368-FLjBLYl5"; 
 
   let myLineId = "";
@@ -181,13 +192,25 @@
       const profile = await liff.getProfile();
       myLineId = profile.userId;
       document.getElementById("lineUserId").value = myLineId;
-      document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
+      document.getElementById("status").innerText = "⏳ กำลังตรวจสอบข้อมูลสมาชิก...";
       
-      // รอให้ฟังก์ชันตรวจสถานะทำงานเสร็จก่อน
-      const hasPendingOrder = await checkActiveOrder(); 
-      
-      if (!hasPendingOrder) {
-        doSearch(); 
+      const noCache = Date.now();
+      const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}&_t=${noCache}`);
+      const result = await response.json();
+
+      if (result.status === "not_found") {
+        document.getElementById("lottoSection").style.display = "none";
+        if (document.getElementById("myTicketsSection")) document.getElementById("myTicketsSection").style.display = "none";
+        document.getElementById("profileSection").style.display = "block";
+        document.getElementById("titleText").innerText = "👤 ลงทะเบียนสมาชิกใหม่";
+        document.getElementById("status").innerText = "✨ ยินดีต้อนรับ! กรุณากรอกข้อมูลส่วนตัวก่อนใช้งานครับ";
+      } else {
+        document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
+        const hasPendingOrder = checkActiveOrder();
+        
+        if (!hasPendingOrder) {
+          doSearch(); 
+        }
       }
 
     } catch (e) { 
@@ -196,8 +219,7 @@
     }
   }
 
-  // ปรับให้เป็น async เพื่อเรียก API ไปถามหลังบ้าน
-  async function checkActiveOrder() {
+  function checkActiveOrder() {
     const orderStr = localStorage.getItem('chokdee_active_order');
     if (orderStr) {
       const activeOrder = JSON.parse(orderStr);
@@ -205,26 +227,7 @@
       const timeLeft = Math.floor((activeOrder.expireTime - now) / 1000);
 
       if (timeLeft > 0) {
-        document.getElementById("status").innerText = "⏳ กำลังตรวจสอบสถานะการโอนเงินล่าสุดของคุณ...";
-        
-        try {
-          // ยิง API ไปถามหลังบ้านว่าจ่ายเงินไปหรือยัง
-          const noCache = Date.now();
-          const response = await fetch(`${BACKEND_URL}?action=checkPendingOrder&lineUserId=${myLineId}&_t=${noCache}`);
-          const data = await response.json();
-          
-          if (data.status === "success" && data.hasPending === false) {
-            // 🎉 ระบบพบว่าจ่ายเงินแล้ว หรือถูกยกเลิกไปแล้ว! ให้ล้างค่าแล้วให้ซื้อต่อได้เลย
-            localStorage.removeItem('chokdee_active_order');
-            document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
-            return false; 
-          }
-        } catch(e) {
-          console.error("เช็คสถานะออเดอร์ค้างล้มเหลว:", e);
-        }
-
-        // กรณีที่ถามแล้ว ยังมีสถานะ "รอชำระเงิน" ค้างอยู่จริงๆ 
-        alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินก่อนทำรายการใหม่ครับ\n(หากโอนและส่งสลิปแล้ว โปรดรอระบบประมวลผลสักครู่)");
+        alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินก่อนทำรายการใหม่ครับ");
         document.getElementById("searchAreaTop").style.display = "none";
         document.getElementById("ticketsArea").style.display = "none";
         document.getElementById("summaryArea").style.display = "none";
@@ -234,7 +237,6 @@
         startCountdown(timeLeft); 
         return true; 
       } else {
-        alert("❌ หวยที่ท่านเลือกหมดเวลาชำระเงินแล้ว กรุณาทำรายการใหม่อีกครั้ง");
         localStorage.removeItem('chokdee_active_order');
         return false; 
       }
@@ -248,9 +250,6 @@
     dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
   }
 
-  // ----------------------------------------------------
-  // 🌟 ฟังก์ชันจัดการหน้า "ข้อมูลส่วนตัว"
-  // ----------------------------------------------------
   async function openProfileSection() {
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("status").innerText = "⏳ กำลังดึงประวัติเดิมของคุณ...";
@@ -260,7 +259,7 @@
       const result = await response.json();
       
       document.getElementById("lottoSection").style.display = "none";
-      document.getElementById("myTicketsSection").style.display = "none"; 
+      document.getElementById("myTicketsSection").style.display = "none";
       document.getElementById("profileSection").style.display = "block";
       document.getElementById("titleText").innerText = "👤 ข้อมูลส่วนตัวของคุณ";
       
@@ -290,9 +289,6 @@
     document.getElementById("status").innerText = "👤 ข้อมูลสมาชิกพร้อมใช้งาน";
   }
 
-  // ----------------------------------------------------
-  // 🌟 ฟังก์ชันจัดการหน้า "สลากของคุณ"
-  // ----------------------------------------------------
   async function openMyTicketsSection() {
     document.getElementById("myDropdown").style.display = "none";
     document.getElementById("lottoSection").style.display = "none";
@@ -318,7 +314,7 @@
     }
   }
   
-function renderMyTickets(tickets) {
+  function renderMyTickets(tickets) {
     const container = document.getElementById("myTicketsList");
     if(tickets.length === 0) {
        container.innerHTML = "<p style='text-align:center; color:#999; padding:40px 10px; background: white; border-radius: 8px;'>ยังไม่มีประวัติการซื้อสลากครับ<br><br>ลองเลือกเลขเด็ดในแผงดูสิครับ! 🎫</p>";
@@ -327,35 +323,15 @@ function renderMyTickets(tickets) {
     
     let html = "";
     tickets.forEach(t => {
-       // ปรับแต่งสีตามผลรางวัล
-       let prizeColor = "#666";
-       let prizeBg = "#f8f9fa";
-       let prizeIcon = "⏳";
-       
-       if (t.prizeStatus.includes("ถูก")) {
-         prizeColor = "#28a745"; // สีเขียวเมื่อถูกรางวัล
-         prizeBg = "#d4edda";
-         prizeIcon = "🎊";
-       } else if (t.prizeStatus === "เสียใจด้วย") {
-         prizeColor = "#dc3545"; // สีแดงเมื่อไม่ถูก
-         prizeBg = "#f8d7da";
-         prizeIcon = "😢";
-       }
-
+       let colorStyle = t.result.includes('ถูก') ? '#28a745' : (t.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
        html += `
-         <div class="my-ticket-card" style="flex-direction: column; align-items: stretch;">
-           <div style="display: flex; gap: 12px; align-items: center;">
-             <img src="${t.thumbUrl}" alt="ลอตเตอรี่" onerror="this.src='https://via.placeholder.com/85?text=No+Image'">
-             <div class="my-ticket-details">
-               <div class="my-ticket-num">${t.ticketId}</div>
-               <div class="my-ticket-set">งวด: ${t.drawDate}<br>ชุดที่ ${t.setNo}</div>
-               <a href="${t.viewUrl}" target="_blank" class="btn-view-ticket"><i class="fa-solid fa-magnifying-glass"></i> ดูใบจริง</a>
-             </div>
-           </div>
-           
-           <!-- 🌟 แสดงผลรางวัลที่นี่ -->
-           <div style="margin-top: 10px; padding: 10px; border-radius: 6px; background-color: ${prizeBg}; border: 1px solid ${prizeColor}; color: ${prizeColor}; font-weight: bold; text-align: center; font-size: 14px;">
-             ${prizeIcon} ${t.prizeStatus}
+         <div class="my-ticket-card">
+           <img src="${t.thumbUrl}" alt="ลอตเตอรี่" onerror="this.src='https://via.placeholder.com/85?text=No+Image'">
+           <div class="my-ticket-details">
+             <div class="my-ticket-num">${t.ticketId}</div>
+             <div class="my-ticket-set">งวด: ${t.drawDate}<br>ชุดที่ ${t.setNo}</div>
+             <div style="font-weight:bold; color: ${colorStyle}; font-size:13px; margin-bottom:8px;">ผลรางวัล: ${t.result}</div>
+             <a href="${t.viewUrl}" target="_blank" class="btn-view-ticket"><i class="fa-solid fa-magnifying-glass"></i> ดูใบจริง</a>
            </div>
          </div>
        `;
@@ -465,10 +441,12 @@ function renderMyTickets(tickets) {
         return;
       }
       
-      document.getElementById("shippingType").innerHTML = `
-        <option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>
-        <option value="ส่งใบจริง">🚚 ส่งใบจริง (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} + ค่าส่งเหมา ${storeConfig.feeShipping} บ.)</option>
-      `;
+      let shippingOptionsHtml = `<option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>`;
+      
+      if (storeConfig && storeConfig.allowShipping) {
+        shippingOptionsHtml += `<option value="ส่งใบจริง">🚚 ส่งใบจริง (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} + ค่าส่งเหมา ${storeConfig.feeShipping} บ.)</option>`;
+      }
+      document.getElementById("shippingType").innerHTML = shippingOptionsHtml;
 
       document.getElementById("totalTicketsCount").innerText = responseData.totalInStock || 0;
       rawTicketsData = responseData.tickets || [];
@@ -583,13 +561,10 @@ function renderMyTickets(tickets) {
   function reCalculatePrice() {
     if (!storeConfig) return; 
     const type = document.getElementById("shippingType").value;
-    
     let price = (cart.length * storeConfig.ticketPrice) + (cart.length * storeConfig.feeDeposit);
-    
     if (type === "ส่งใบจริง") {
       price += storeConfig.feeShipping;
     }
-    
     document.getElementById("estPrice").innerText = price;
   }
 
@@ -610,11 +585,32 @@ function renderMyTickets(tickets) {
         clearInterval(countdownInterval);
         document.getElementById("qrImageSection").style.display = "none";
         document.getElementById("expiredSection").style.display = "block";
-        
         localStorage.removeItem('chokdee_active_order'); 
       }
       timeLeft -= 1;
     }, 1000);
+  }
+
+  async function downloadQR() {
+    const qrImage = document.getElementById("payQr");
+    const imageUrl = qrImage.src;
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = blobUrl;
+      a.download = 'QR_ChokdeeLotto.png'; 
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      alert("✅ บันทึก QR Code ลงเครื่องสำเร็จ! ไปที่แอปธนาคารเพื่อสแกนจ่ายได้เลยครับ");
+    } catch (error) {
+      console.error("Download failed", error);
+      alert("⚠️ มือถือของคุณอาจไม่รองรับการเซฟอัตโนมัติ รบกวน 'กดค้างที่รูป QR Code' แล้วเลือก 'บันทึกรูปภาพ' แทนนะครับ");
+    }
   }
 
   async function submitOrder() {
@@ -649,20 +645,17 @@ function renderMyTickets(tickets) {
           expireTime: expireTime
         };
         localStorage.setItem('chokdee_active_order', JSON.stringify(activeOrder));
-        
         startCountdown(5 * 60); 
         
       } else if (result.status === "error") {
         alert(result.message);
         btnOrder.innerText = originalText;
         btnOrder.disabled = false;
-        
         if (result.unavailableTickets && result.unavailableTickets.length > 0) {
           cart = cart.filter(item => !result.unavailableTickets.includes(item.ticketId));
         } else {
           cart = []; 
         }
-        
         updateCartUI(); 
         doSearch(); 
       } else {
