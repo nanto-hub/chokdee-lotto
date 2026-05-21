@@ -32,57 +32,84 @@
     .total-stock-count span { color: #d9534f; font-weight: bold; }
 
     /* 🌟 ดีไซน์แผงหวยแบบใหม่ */
-    .ticket-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    
-    .ticket-card { 
-      background-color: #fff; 
-      border-radius: 8px; 
-      overflow: hidden; 
-      display: flex; 
-      flex-direction: column; 
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
-      position: relative; 
-      border: 1px solid #eee;
-    }
-    
-    .ticket-top { position: relative; width: 100%; display: flex; }
+/* 🌟 ดีไซน์แผงหวยใหม่ */
+.ticket-list { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; /* แสดง 2 คอลัมน์ */
+  gap: 10px; 
+}
 
-    /* 🌟 ธงข้อมูลสีส้ม ยาวลงมาเชื่อมกับปุ่ม */
-    .ticket-left-info { 
-      width: 35%;
-      z-index: 2; 
-      background-color: #ff9800; 
-      color: white; 
-      text-align: center; 
-      font-size: 10px; 
-      font-weight: bold; 
-      padding-top: 10px;
-      display: flex; 
-      flex-direction: column;
-      align-items: center;
-    }
-    .ticket-left-info span { font-size: 16px; color: #fff; font-weight: 800; display: block; margin: 2px 0; }
-    
-    .ticket-img-container { width: 65%; background-color: #fff; display: flex; align-items: center; justify-content: center; }
-    .ticket-img-container img { width: 100%; height: auto; display: block; object-fit: contain; }
-    
-    /* 🌟 ปุ่มหยิบใส่ตะกร้าสีแดงทึบ */
-    .btn-buy { 
-      width: 100%;
-      padding: 10px; 
-      background: #d9534f; /* สีแดง */
-      color: #fff; 
-      border: none; 
-      font-size: 13px; 
-      font-weight: bold; 
-      cursor: pointer; 
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
-      gap: 6px; 
-    }
-    
-    .btn-buy:disabled { background: #888; color: #ddd; cursor: not-allowed; }
+.ticket-card { 
+  background-color: #fff; 
+  border-radius: 8px; 
+  overflow: hidden; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+  position: relative; /* สำคัญ: ทำให้ธงและปุ่มอ้างอิงตำแหน่งจากกรอบนี้ */
+  border: 1px solid #eee;
+}
+
+.ticket-img-container { 
+  width: 100%; 
+  display: block; 
+}
+
+.ticket-img-container img { 
+  width: 100%; 
+  height: auto; 
+  display: block; /* ลบช่องว่างใต้ภาพ */
+}
+
+/* 🚩 1. ธงข้อมูลซ้ายบน (ทับรูป) */
+.ticket-left-info { 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  z-index: 2; /* ดันให้อยู่เหนือรูป */
+  background-color: #ff9800; 
+  color: white; 
+  text-align: center; 
+  font-size: 10px; 
+  padding: 6px 12px; 
+  border-bottom-right-radius: 8px; /* มุมโค้งด้านล่างขวาให้ดูสวยงาม */
+  box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.ticket-left-info span { 
+  font-size: 14px; 
+  font-weight: 800; 
+  display: block; 
+  margin-top: 2px;
+}
+
+/* 🛒 2. ปุ่มหยิบใส่ตะกร้า (ล่างสุด ทับรูป สีแดงเต็มแถบ) */
+.btn-add-cart { 
+  position: absolute; 
+  bottom: 0; 
+  left: 0; 
+  width: 100%; 
+  z-index: 2; /* ดันให้อยู่เหนือรูป */
+  background-color: #d9534f; /* สีแดง */
+  color: white; 
+  border: none; 
+  font-size: 14px; 
+  font-weight: bold; 
+  padding: 10px 0;
+  cursor: pointer; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  transition: background 0.3s;
+}
+
+/* เอฟเฟกต์ตอนเอาเมาส์ชี้ */
+.btn-add-cart:hover {
+  background-color: #c9302c; 
+}
+
+.btn-add-cart:disabled { 
+  background: #888; 
+  cursor: not-allowed;
+}
     .btn-buy:hover:not(:disabled) { background: #c9302c; }
 
     /* ส่วนสรุปตะกร้าและอื่นๆ (เหมือนเดิม) */
