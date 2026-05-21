@@ -39,6 +39,9 @@
     
     .btn-buy { width: 100%; padding: 8px; background: #0275d8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     .btn-buy:disabled { background: #ccc; cursor: not-allowed; }
+    
+    /* ปุ่มดูรูปในแผงหวย */
+    .btn-view-img { width: 100%; padding: 6px; background: #17a2b8; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 8px; font-size: 13px; }
 
     .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
     .cart-tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
@@ -66,14 +69,12 @@
     .alert-box { background-color: #ffe6e6; color: #cc0000; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ff9999; font-size: 14px; font-weight: 500; }
     .closed-store-box { grid-column: span 2; text-align:center; padding: 30px; background: #fff; border-radius: 8px; border: 1px solid #f5c6cb; margin-top: 20px;}
     
-    /* 🌟 สไตล์สลากของคุณแบบใหญ่เต็มจอ */
     .my-tickets-section { display: none; padding: 5px; }
     .my-ticket-card { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; align-items: center; }
     .my-ticket-card img { width: 100%; max-width: 300px; height: auto; border-radius: 8px; border: 1px solid #eee; object-fit: contain; }
     .my-ticket-details { width: 100%; text-align: center; }
     .my-ticket-num { font-size: 26px; font-weight: bold; color: #d9534f; margin-bottom: 5px; letter-spacing: 2px; }
     .my-ticket-set { font-size: 15px; color: #666; margin-bottom: 8px; }
-    .btn-view-ticket { display: block; background: #17a2b8; color: white; padding: 10px; border-radius: 6px; text-decoration: none; font-size: 15px; font-weight: bold; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -173,12 +174,9 @@
     </div>
 
   </div>
+
 <script src="config.js"></script>
 <script>
-  // ==========================================================
-  // ⚠️ กรุณาตรวจสอบและตั้งค่า LINK WEB APP และ LIFF ID 
-  // ==========================================================
-  
   let myLineId = "";
   let cart = []; 
   let rawTicketsData = []; 
@@ -214,7 +212,6 @@
           doSearch(); 
         }
       }
-
     } catch (e) { 
       console.error(e); 
       document.getElementById("status").innerText = "❌ เชื่อมต่อระบบ LINE LIFF ล้มเหลว";
@@ -327,6 +324,7 @@
     let html = "";
     tickets.forEach(t => {
        let colorStyle = t.result.includes('ถูก') ? '#28a745' : (t.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
+       // 🌟 นำลิงก์ดูใบจริงออก โชว์แต่รูปเลย
        html += `
          <div class="my-ticket-card">
            <img src="${t.thumbUrl}" alt="ลอตเตอรี่" onerror="this.src='https://via.placeholder.com/85?text=No+Image'">
@@ -334,7 +332,6 @@
              <div class="my-ticket-num">${t.ticketId}</div>
              <div class="my-ticket-set">งวด: ${t.drawDate}<br>ชุดที่ ${t.setNo}</div>
              <div style="font-weight:bold; color: ${colorStyle}; font-size:15px; margin-bottom:8px;">ผลรางวัล: ${t.result}</div>
-             <a href="${t.viewUrl}" target="_blank" class="btn-view-ticket"><i class="fa-solid fa-magnifying-glass"></i> ดูใบจริงเต็มจอ</a>
            </div>
          </div>
        `;
@@ -365,7 +362,11 @@
       bankAccount: document.getElementById("bankAccount").value
     };
     try {
-      const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "saveProfile", data: formData }) });
+      // 🌟 ส่ง Token ไปยืนยันความปลอดภัยด้วย
+      const response = await fetch(BACKEND_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "saveProfile", token: SECRET_TOKEN, data: formData }) 
+      });
       const resData = await response.json();
       alert(resData.message);
       closeProfileSection();
@@ -403,6 +404,16 @@
       
       timerElem.innerText = timeText;
     }, 1000);
+  }
+
+  // 🌟 ฟังก์ชันโชว์/ซ่อน รูปใบจริงในแผง
+  function toggleLottoImg(id) {
+    const img = document.getElementById('img-' + id);
+    if (img.style.display === 'none') {
+      img.style.display = 'block';
+    } else {
+      img.style.display = 'none';
+    }
   }
 
   async function doSearch() {
@@ -465,7 +476,7 @@
       rawTicketsData.forEach(item => {
         let key = item.ticketId + "_" + item.drawDate;
         if (!groupedTickets[key]) {
-          groupedTickets[key] = { ticketId: item.ticketId, drawDate: item.drawDate, allSets: [] };
+          groupedTickets[key] = { ticketId: item.ticketId, drawDate: item.drawDate, allSets: [], imageUrl: item.imageUrl };
         }
         groupedTickets[key].allSets.push(item.setNo);
       });
@@ -477,12 +488,15 @@
         let isButtonDisabled = availableCount <= 0 ? "disabled" : "";
         let buttonText = availableCount <= 0 ? "หมดแล้ว" : "เลือกใบนี้";
 
+        // 🌟 เพิ่มปุ่มดูรูปใบจริง และ Tag <img> ที่ซ่อนไว้ใต้เลข
         html += `
           <div class="ticket-item">
             <div class="ticket-num">${group.ticketId}</div>
             <div class="ticket-info">งวดวันที่: ${group.drawDate}</div>
             <div class="ticket-qty-badge">${group.allSets.length} ใบ</div>
             <button class="btn-buy" ${isButtonDisabled} onclick="clickSelectTicket('${group.ticketId}')">${buttonText}</button>
+            <button class="btn-view-img" onclick="toggleLottoImg('${group.ticketId}')"><i class="fa-regular fa-image"></i> ดูรูปใบจริง</button>
+            <img id="img-${group.ticketId}" src="${group.imageUrl}" style="display:none; width:100%; border-radius:6px; margin-top:10px; border:1px solid #ccc;" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
           </div>`;
       });
       document.getElementById("ticketsArea").innerHTML = html;
@@ -637,7 +651,8 @@
     btnOrder.innerText = "⏳ กำลังสร้างใบสั่งซื้อ...";
     btnOrder.disabled = true;
     
-    const postData = { action: "createOrder", data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } };
+    // 🌟 ส่ง Token ไปยืนยันความปลอดภัยด้วย
+    const postData = { action: "createOrder", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } };
     
     try {
       const response = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify(postData) });
