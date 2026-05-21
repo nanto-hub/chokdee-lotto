@@ -31,7 +31,7 @@
     .total-stock-count { font-size: 14px; color: #666; margin-bottom: 15px; padding-left: 2px; font-weight: 500; }
     .total-stock-count span { color: #d9534f; font-weight: bold; }
 
-/* 🌟 ดีไซน์แผงหวยแบบใหม่ */
+  /* 🌟 ดีไซน์แผงหวยแบบใหม่ */
   .ticket-list { 
     display: grid; 
     grid-template-columns: 1fr 1fr; 
@@ -72,29 +72,29 @@
     text-align: center; 
     font-size: 11px; 
     font-weight: bold; 
-    padding: 4px; /* ลดขอบด้านในลงนิดหน่อยให้มีพื้นที่พิมพมากขึ้น */
+    padding: 4px; 
     display: flex; 
     flex-direction: column; 
     justify-content: center; 
     align-items: center;
-    line-height: 1.3; /* 🌟 ปรับระยะห่างระหว่างบรรทัดให้กระชับขึ้น */
-    overflow: hidden; /* 🌟 ตัดข้อความส่วนที่เกินขอบทิ้ง ไม่ให้ล้นออกนอกธง */
-    word-break: break-word; /* 🌟 อนุญาตให้ตัดคำได้ถ้ามันยาวเกินไป */
+    line-height: 1.3; 
+    overflow: hidden; 
+    word-break: break-word; 
   }
 
   .ticket-left-info span { 
-    font-size: 14px; /* ลดขนาดตัวเลขลงนิดหน่อยให้พอดีกับกรอบ 32% */
+    font-size: 14px; 
     font-weight: 800; 
-    display: inline-block; /* 🌟 เปลี่ยนเป็น inline-block ให้อยู่บรรทัดเดียวกับคำว่า ใบ/ล้าน */
+    display: inline-block; 
     margin: 0 2px;
   }
 
   /* 🛒 2. ปุ่มหยิบใส่ตะกร้าสีแดง (ต่อจากธงพอดี ไม่ทับกัน) */
   .btn-buy { 
     position: absolute; 
-    bottom: 0;           
-    left: 32%;           /* 🌟 ให้ปุ่มเริ่มต่อจากขอบขวาของธง (ต้องเท่ากับความกว้างของธง) */
-    width: 68%;          /* 🌟 ความกว้างที่เหลือของใบหวย (100% - 32% = 68%) */
+    bottom: 0;             
+    left: 32%;           
+    width: 68%;          
     height: 45px;        
     z-index: 3; 
     background-color: #d9534f; 
@@ -109,17 +109,10 @@
     gap: 5px; 
   }
 
-  .btn-buy:active, .btn-buy:hover:not(:disabled) {
-    background-color: #c9302c; 
-  }
+  .btn-buy:active, .btn-buy:hover:not(:disabled) { background-color: #c9302c; }
+  .btn-buy:disabled { background: #888; cursor: not-allowed; }
 
-  .btn-buy:disabled { 
-    background: #888; 
-    cursor: not-allowed; 
-  }
-    .btn-buy:hover:not(:disabled) { background: #c9302c; }
-
-    /* ส่วนสรุปตะกร้าและอื่นๆ (เหมือนเดิม) */
+    /* ส่วนสรุปตะกร้าและอื่นๆ */
     .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
     .cart-tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
     .cart-tag { background: #fff; border: 1px solid #ccc; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -250,7 +243,6 @@
       <div id="myTicketsList"></div>
       <button class="btn-back" style="background-color: #6c757d; margin-top: 20px;" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
     </div>
-
   </div>
 
 <script src="config.js"></script>
@@ -284,7 +276,9 @@
         document.getElementById("status").innerText = "✨ ยินดีต้อนรับ! กรุณากรอกข้อมูลส่วนตัวก่อนใช้งานครับ";
       } else {
         document.getElementById("status").innerText = "👤 ยินดีต้อนรับคุณ " + profile.displayName;
-        const hasPendingOrder = checkActiveOrder();
+        
+        // 🌟 ถามหลังบ้านว่ามีบิลค้างจ่ายจริงๆ ไหม
+        const hasPendingOrder = await checkActiveOrder();
         
         if (!hasPendingOrder) {
           doSearch(); 
@@ -296,29 +290,36 @@
     }
   }
 
-  function checkActiveOrder() {
-    const orderStr = localStorage.getItem('chokdee_active_order');
-    if (orderStr) {
-      const activeOrder = JSON.parse(orderStr);
-      const now = Date.now();
-      const timeLeft = Math.floor((activeOrder.expireTime - now) / 1000);
+  async function checkActiveOrder() {
+    try {
+      const noCache = Date.now();
+      const res = await fetch(`${BACKEND_URL}?action=checkPendingOrder&lineUserId=${myLineId}&_t=${noCache}`);
+      const result = await res.json();
 
-      if (timeLeft > 0) {
-        alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินก่อนทำรายการใหม่ครับ");
-        document.getElementById("searchAreaTop").style.display = "none";
-        document.getElementById("ticketsArea").style.display = "none";
-        document.getElementById("summaryArea").style.display = "none";
-        document.getElementById("qrContainer").style.display = "block";
-        document.getElementById("finalPriceText").innerText = activeOrder.finalAmount;
-        document.getElementById("payQr").src = activeOrder.qrCodeImgUrl;
-        startCountdown(timeLeft); 
-        return true; 
-      } else {
-        localStorage.removeItem('chokdee_active_order');
-        return false; 
+      if (result.status === "pending") {
+        const now = Date.now();
+        const timeLeft = Math.floor((result.expireTime - now) / 1000);
+
+        if (timeLeft > 0) {
+          alert("⚠️ ท่านยังมีรายการรอชำระ กรุณาชำระเงินให้เรียบร้อย หรือรอระบบยกเลิกอัตโนมัติครับ");
+          document.getElementById("searchAreaTop").style.display = "none";
+          document.getElementById("ticketsArea").style.display = "none";
+          document.getElementById("summaryArea").style.display = "none";
+          document.getElementById("qrContainer").style.display = "block";
+          document.getElementById("finalPriceText").innerText = result.finalAmount;
+          document.getElementById("payQr").src = result.qrCodeImgUrl;
+          startCountdown(timeLeft); 
+          return true; 
+        }
       }
+      
+      localStorage.removeItem('chokdee_active_order');
+      return false;
+      
+    } catch (e) {
+      console.error("เช็คออเดอร์ค้างชำระไม่สำเร็จ", e);
+      return false;
     }
-    return false;
   }
 
   function toggleDropdown(event) {
@@ -538,7 +539,6 @@
         return;
       }
 
-      // จัดกลุ่มสลากและเก็บรูปลง Array
       let groupedTickets = {};
       rawTicketsData.forEach(item => {
         let key = item.ticketId + "_" + item.drawDate;
@@ -551,7 +551,6 @@
         }
       });
 
-      // สร้าง HTML สำหรับสลากแต่ละกลุ่ม (ดีไซน์ตามสั่ง)
       Object.values(groupedTickets).forEach(group => {
         let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId).length;
         let availableCount = group.allSets.length - selectedInCartCount;
@@ -567,15 +566,15 @@
 
         html += `
           <div class="ticket-card">
-            <div class="ticket-top">
+            <div class="ticket-img-container">
+              <img src="${coverImg}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+              
               <div class="ticket-left-info">
                 ${setLabel}
                 <span>${qty}</span> ใบ<br>
                 <span>${millions}</span> ล้าน
               </div>
-              <div class="ticket-img-container">
-                <img src="${coverImg}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
-              </div>
+              
               <button class="btn-buy" data-id="${group.ticketId}" ${isButtonDisabled} onclick="clickSelectTicket('${group.ticketId}')">
                 <i class="fa-solid fa-basket-shopping"></i> ${buttonText}
               </button>
@@ -734,7 +733,6 @@
     btnOrder.innerText = "⏳ กำลังสร้างใบสั่งซื้อ...";
     btnOrder.disabled = true;
     
-    // ส่ง Token ไปยืนยันความปลอดภัย
     const postData = { action: "createOrder", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } };
     
     try {
