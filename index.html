@@ -31,7 +31,6 @@
     .total-stock-count { font-size: 14px; color: #666; margin-bottom: 15px; padding-left: 2px; font-weight: 500; }
     .total-stock-count span { color: #d9534f; font-weight: bold; }
 
-    /* 🌟 ดีไซน์แผงหวยแบบใหม่ */
 /* 🌟 ดีไซน์แผงหวยแบบใหม่ */
   .ticket-list { 
     display: grid; 
@@ -40,7 +39,7 @@
   }
 
   .ticket-card { 
-    position: relative; /* สำคัญ: กรอบสำหรับอ้างอิงตำแหน่งธงและปุ่ม */
+    position: relative; 
     background-color: #fff; 
     border-radius: 8px; 
     overflow: hidden; 
@@ -59,41 +58,45 @@
     display: block; 
   }
 
-  /* 🚩 1. ธงข้อมูล (แถบยาวเต็ม 100% ด้านซ้าย ทับรูปภาพ) */
+  /* 🚩 1. ธงข้อมูล (แถบยาวเต็ม 100% ด้านซ้าย) */
   .ticket-left-info { 
     position: absolute; 
     top: 0; 
     left: 0; 
-    bottom: 0; /* ดึงให้ยาวเต็ม 100% ของแผง */
+    bottom: 0; 
+    width: 32%; 
+    box-sizing: border-box; 
     z-index: 2;
-    background-color: rgba(255, 152, 0, 0.95); /* สีส้ม (ปรับโปร่งแสงนิดๆ ให้ดูกลืนกับรูปได้ ถ้าไม่ชอบเปลี่ยนเป็น #ff9800) */
+    background-color: rgba(255, 152, 0, 0.95); 
     color: white; 
     text-align: center; 
     font-size: 11px; 
     font-weight: bold; 
-    padding: 0 10px; /* กำหนดความกว้างของแถบด้านซ้าย */
-    padding-bottom: 35px; /* 🌟 เผื่อพื้นที่ด้านล่างไว้ ไม่ให้ข้อความโดนปุ่มตะกร้าบัง */
+    padding: 4px; /* ลดขอบด้านในลงนิดหน่อยให้มีพื้นที่พิมพมากขึ้น */
     display: flex; 
     flex-direction: column; 
-    justify-content: center; /* จัดข้อความให้อยู่กึ่งกลางแนวตั้ง */
+    justify-content: center; 
     align-items: center;
+    line-height: 1.3; /* 🌟 ปรับระยะห่างระหว่างบรรทัดให้กระชับขึ้น */
+    overflow: hidden; /* 🌟 ตัดข้อความส่วนที่เกินขอบทิ้ง ไม่ให้ล้นออกนอกธง */
+    word-break: break-word; /* 🌟 อนุญาตให้ตัดคำได้ถ้ามันยาวเกินไป */
   }
 
   .ticket-left-info span { 
-    font-size: 15px; 
+    font-size: 14px; /* ลดขนาดตัวเลขลงนิดหน่อยให้พอดีกับกรอบ 32% */
     font-weight: 800; 
-    display: block; /* กลับมาใส่ให้ตัวเลขใหญ่ๆ ตัดขึ้นบรรทัดใหม่สวยๆ */
-    margin: 2px 0;
+    display: inline-block; /* 🌟 เปลี่ยนเป็น inline-block ให้อยู่บรรทัดเดียวกับคำว่า ใบ/ล้าน */
+    margin: 0 2px;
   }
 
-  /* 🛒 2. ปุ่มหยิบใส่ตะกร้าสีแดง (ทับรูปล่างสุด) */
+  /* 🛒 2. ปุ่มหยิบใส่ตะกร้าสีแดง (ต่อจากธงพอดี ไม่ทับกัน) */
   .btn-buy { 
     position: absolute; 
     bottom: 0;           
-    left: 0; 
-    width: 100%;         
+    left: 32%;           /* 🌟 ให้ปุ่มเริ่มต่อจากขอบขวาของธง (ต้องเท่ากับความกว้างของธง) */
+    width: 68%;          /* 🌟 ความกว้างที่เหลือของใบหวย (100% - 32% = 68%) */
     height: 35px;        
-    z-index: 3; /* 🌟 ดันให้อยู่บนสุด เพื่อให้ทับทั้งรูปและปลายขอบล่างของธง */
+    z-index: 3; 
     background-color: #d9534f; 
     color: white; 
     border: none; 
