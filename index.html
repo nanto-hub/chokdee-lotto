@@ -31,19 +31,68 @@
     .total-stock-count { font-size: 14px; color: #666; margin-bottom: 15px; padding-left: 2px; font-weight: 500; }
     .total-stock-count span { color: #d9534f; font-weight: bold; }
 
-    /* 🌟 สไตล์แผงหวยแบบใหม่ */
+    /* 🌟 ดีไซน์แผงหวยแบบใหม่ (แสดงข้อมูลทับรูป) */
     .ticket-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .ticket-card { background-color: #3b2a2a; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-    .ticket-top { display: flex; align-items: stretch; }
-    .ticket-left-info { width: 35%; background-color: #2b1d1d; color: white; text-align: center; font-size: 11px; font-weight: bold; padding: 8px 2px; display: flex; flex-direction: column; justify-content: center; border-right: 2px solid #d9534f; }
-    .ticket-left-info span { font-size: 16px; color: #ffeb3b; margin: 2px 0; }
-    .ticket-img-container { width: 65%; padding: 5px; background-color: #fff; display: flex; align-items: center; justify-content: center; }
-    .ticket-img-container img { width: 100%; border-radius: 4px; display: block; object-fit: contain; }
     
-    .btn-buy { width: 100%; padding: 10px; background: #333; color: #fff; border: none; font-size: 13px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; border-top: 1px solid #222; }
-    .btn-buy:disabled { background: #555; color: #888; cursor: not-allowed; }
-    .btn-buy:hover:not(:disabled) { background: #444; }
+    .ticket-card { 
+      background-color: #fff; 
+      border-radius: 8px; 
+      overflow: hidden; 
+      display: flex; 
+      flex-direction: column; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+      position: relative; /* สำคัญ: เพื่อให้ธงและปุ่มลอยทับได้ */
+      border: 1px solid #eee;
+    }
+    
+    .ticket-top { position: relative; width: 100%; }
 
+    /* ธงข้อมูลสีส้ม เล็กลงและลอยทับรูป (ซ้ายบน) */
+    .ticket-left-info { 
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2; /* อยู่เหนือรูป */
+      background-color: #ff9800; /* สีส้ม */
+      color: white; 
+      text-align: center; 
+      font-size: 9px; /* เล็กลง */
+      font-weight: bold; 
+      padding: 4px 6px; /* กระทัดรัด */
+      border-bottom-right-radius: 8px; /* ทำมุมโค้งเฉพาะด้านล่างขวา */
+      box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    .ticket-left-info span { font-size: 13px; color: #fff; margin: 0 1px; font-weight: 800; }
+    
+    /* คอนเทนเนอร์รูปภาพ เต็มความกว้าง */
+    .ticket-img-container { width: 100%; background-color: #fff; display: flex; align-items: center; justify-content: center; }
+    .ticket-img-container img { width: 100%; height: auto; display: block; object-fit: contain; }
+    
+    /* ปุ่มหยิบใส่ตะกร้า ลอยทับรูป (ด้านล่าง) */
+    .btn-buy { 
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      z-index: 2; /* อยู่เหนือรูป */
+      padding: 8px; 
+      background: rgba(0, 0, 0, 0.7); /* สีดำโปร่งแสง */
+      color: #fff; 
+      border: none; 
+      font-size: 13px; 
+      font-weight: bold; 
+      cursor: pointer; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      gap: 6px; 
+      backdrop-filter: blur(2px); /* เพิ่มเอฟเฟกต์เบลอพื้นหลังรูปเล็กน้อย */
+    }
+    
+    .btn-buy:disabled { background: rgba(85, 85, 85, 0.8); color: #ccc; cursor: not-allowed; }
+    .btn-buy:hover:not(:disabled) { background: rgba(217, 83, 79, 0.9); /* เปลี่ยนเป็นสีแดงเมื่อชี้ */ }
+
+    /* ส่วนสรุปตะกร้าและอื่นๆ */
     .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
     .cart-tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
     .cart-tag { background: #fff; border: 1px solid #ccc; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -475,7 +524,7 @@
         }
       });
 
-      // 🌟 สร้าง HTML สำหรับสลากแต่ละกลุ่ม (ดีไซน์ใหม่)
+      // 🌟 สร้าง HTML สำหรับสลากแต่ละกลุ่ม (ดีไซน์ใหม่ แสดงข้อมูลทับรูป)
       Object.values(groupedTickets).forEach(group => {
         let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId).length;
         let availableCount = group.allSets.length - selectedInCartCount;
@@ -501,10 +550,10 @@
               <div class="ticket-img-container">
                 <img src="${coverImg}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
               </div>
+              <button class="btn-buy" data-id="${group.ticketId}" ${isButtonDisabled} onclick="clickSelectTicket('${group.ticketId}')">
+                <i class="fa-solid fa-basket-shopping"></i> ${buttonText}
+              </button>
             </div>
-            <button class="btn-buy" data-id="${group.ticketId}" ${isButtonDisabled} onclick="clickSelectTicket('${group.ticketId}')">
-              <i class="fa-solid fa-basket-shopping"></i> ${buttonText}
-            </button>
           </div>`;
       });
       document.getElementById("ticketsArea").innerHTML = html;
@@ -659,7 +708,7 @@
     btnOrder.innerText = "⏳ กำลังสร้างใบสั่งซื้อ...";
     btnOrder.disabled = true;
     
-    // 🌟 ส่ง Token ไปยืนยันความปลอดภัยด้วย
+    // ส่ง Token ไปยืนยันความปลอดภัย
     const postData = { action: "createOrder", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } };
     
     try {
