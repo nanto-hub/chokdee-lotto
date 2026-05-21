@@ -32,82 +32,88 @@
     .total-stock-count span { color: #d9534f; font-weight: bold; }
 
     /* 🌟 ดีไซน์แผงหวยแบบใหม่ */
-/* 🌟 ดีไซน์แผงหวยใหม่ */
-.ticket-list { 
-  display: grid; 
-  grid-template-columns: 1fr 1fr; 
-  gap: 10px; 
-}
+/* 🌟 ดีไซน์แผงหวยแบบใหม่ */
+  .ticket-list { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 10px; 
+  }
 
-.ticket-card { 
-  position: relative; /* สำคัญ: เป็นกรอบให้ธงและปุ่มอ้างอิงตำแหน่ง */
-  background-color: #fff; 
-  border-radius: 8px; 
-  overflow: hidden; 
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
-  border: 1px solid #eee;
-}
+  .ticket-card { 
+    position: relative; /* สำคัญ: กรอบสำหรับอ้างอิงตำแหน่งธงและปุ่ม */
+    background-color: #fff; 
+    border-radius: 8px; 
+    overflow: hidden; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+    border: 1px solid #eee;
+  }
 
-.ticket-img-container { 
-  width: 100%; 
-  display: block; 
-}
+  .ticket-img-container { 
+    width: 100%; 
+    display: block; 
+  }
 
-.ticket-img-container img { 
-  width: 100%; 
-  height: auto; 
-  display: block; 
-}
+  .ticket-img-container img { 
+    width: 100%; 
+    height: auto; 
+    display: block; 
+  }
 
-/* 🚩 1. ธงข้อมูลซ้ายบน */
-.ticket-left-info { 
-  position: absolute; 
-  top: 0; 
-  left: 0; 
-  z-index: 2;
-  background-color: #ff9800; 
-  color: white; 
-  text-align: center; 
-  font-size: 10px; 
-  font-weight: bold; 
-  padding: 4px 8px; 
-  border-bottom-right-radius: 8px;
-}
+  /* 🚩 1. ธงข้อมูล (แถบยาวเต็ม 100% ด้านซ้าย ทับรูปภาพ) */
+  .ticket-left-info { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    bottom: 0; /* ดึงให้ยาวเต็ม 100% ของแผง */
+    z-index: 2;
+    background-color: rgba(255, 152, 0, 0.95); /* สีส้ม (ปรับโปร่งแสงนิดๆ ให้ดูกลืนกับรูปได้ ถ้าไม่ชอบเปลี่ยนเป็น #ff9800) */
+    color: white; 
+    text-align: center; 
+    font-size: 11px; 
+    font-weight: bold; 
+    padding: 0 10px; /* กำหนดความกว้างของแถบด้านซ้าย */
+    padding-bottom: 35px; /* 🌟 เผื่อพื้นที่ด้านล่างไว้ ไม่ให้ข้อความโดนปุ่มตะกร้าบัง */
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; /* จัดข้อความให้อยู่กึ่งกลางแนวตั้ง */
+    align-items: center;
+  }
 
-.ticket-left-info span { 
-  font-size: 14px; 
-  font-weight: 800; 
-  display: block; 
-}
+  .ticket-left-info span { 
+    font-size: 15px; 
+    font-weight: 800; 
+    display: block; /* กลับมาใส่ให้ตัวเลขใหญ่ๆ ตัดขึ้นบรรทัดใหม่สวยๆ */
+    margin: 2px 0;
+  }
 
-/* 🛒 2. ปุ่มหยิบใส่ตะกร้าสีแดง (ทับรูปล่างสุด) */
-.btn-add-cart { 
-  position: absolute; 
-  bottom: 0;           /* ดึงลงมาชิดขอบล่าง */
-  left: 0; 
-  width: 100%;         /* กว้างเต็มแผงหวย */
-  height: 35px;        /* ความสูงปุ่ม */
-  z-index: 2;          /* ลอยทับรูปภาพ */
-  background-color: #d9534f; /* สีแดง */
-  color: white; 
-  border: none; 
-  font-size: 14px; 
-  font-weight: bold; 
-  cursor: pointer; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center;
-}
+  /* 🛒 2. ปุ่มหยิบใส่ตะกร้าสีแดง (ทับรูปล่างสุด) */
+  .btn-buy { 
+    position: absolute; 
+    bottom: 0;           
+    left: 0; 
+    width: 100%;         
+    height: 35px;        
+    z-index: 3; /* 🌟 ดันให้อยู่บนสุด เพื่อให้ทับทั้งรูปและปลายขอบล่างของธง */
+    background-color: #d9534f; 
+    color: white; 
+    border: none; 
+    font-size: 13px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    gap: 5px; 
+  }
 
-/* เอฟเฟกต์ตอนกดหรือเอาเมาส์ชี้ */
-.btn-add-cart:active, .btn-add-cart:hover {
-  background-color: #c9302c; 
-}
+  .btn-buy:active, .btn-buy:hover:not(:disabled) {
+    background-color: #c9302c; 
+  }
 
-.btn-add-cart:disabled { 
-  background: #888; 
-  cursor: not-allowed; 
-}
+  .btn-buy:disabled { 
+    background: #888; 
+    cursor: not-allowed; 
+  }
     .btn-buy:hover:not(:disabled) { background: #c9302c; }
 
     /* ส่วนสรุปตะกร้าและอื่นๆ (เหมือนเดิม) */
