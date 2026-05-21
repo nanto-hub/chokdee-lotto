@@ -35,16 +35,16 @@
 /* 🌟 ดีไซน์แผงหวยใหม่ */
 .ticket-list { 
   display: grid; 
-  grid-template-columns: 1fr 1fr; /* แสดง 2 คอลัมน์ */
+  grid-template-columns: 1fr 1fr; 
   gap: 10px; 
 }
 
 .ticket-card { 
+  position: relative; /* สำคัญ: เป็นกรอบให้ธงและปุ่มอ้างอิงตำแหน่ง */
   background-color: #fff; 
   border-radius: 8px; 
   overflow: hidden; 
   box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
-  position: relative; /* สำคัญ: ทำให้ธงและปุ่มอ้างอิงตำแหน่งจากกรอบนี้ */
   border: 1px solid #eee;
 }
 
@@ -56,59 +56,57 @@
 .ticket-img-container img { 
   width: 100%; 
   height: auto; 
-  display: block; /* ลบช่องว่างใต้ภาพ */
+  display: block; 
 }
 
-/* 🚩 1. ธงข้อมูลซ้ายบน (ทับรูป) */
+/* 🚩 1. ธงข้อมูลซ้ายบน */
 .ticket-left-info { 
   position: absolute; 
   top: 0; 
   left: 0; 
-  z-index: 2; /* ดันให้อยู่เหนือรูป */
+  z-index: 2;
   background-color: #ff9800; 
   color: white; 
   text-align: center; 
   font-size: 10px; 
-  padding: 6px 12px; 
-  border-bottom-right-radius: 8px; /* มุมโค้งด้านล่างขวาให้ดูสวยงาม */
-  box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+  font-weight: bold; 
+  padding: 4px 8px; 
+  border-bottom-right-radius: 8px;
 }
 
 .ticket-left-info span { 
   font-size: 14px; 
   font-weight: 800; 
   display: block; 
-  margin-top: 2px;
 }
 
-/* 🛒 2. ปุ่มหยิบใส่ตะกร้า (ล่างสุด ทับรูป สีแดงเต็มแถบ) */
+/* 🛒 2. ปุ่มหยิบใส่ตะกร้าสีแดง (ทับรูปล่างสุด) */
 .btn-add-cart { 
   position: absolute; 
-  bottom: 0; 
+  bottom: 0;           /* ดึงลงมาชิดขอบล่าง */
   left: 0; 
-  width: 100%; 
-  z-index: 2; /* ดันให้อยู่เหนือรูป */
+  width: 100%;         /* กว้างเต็มแผงหวย */
+  height: 35px;        /* ความสูงปุ่ม */
+  z-index: 2;          /* ลอยทับรูปภาพ */
   background-color: #d9534f; /* สีแดง */
   color: white; 
   border: none; 
   font-size: 14px; 
   font-weight: bold; 
-  padding: 10px 0;
   cursor: pointer; 
   display: flex; 
   align-items: center; 
   justify-content: center;
-  transition: background 0.3s;
 }
 
-/* เอฟเฟกต์ตอนเอาเมาส์ชี้ */
-.btn-add-cart:hover {
+/* เอฟเฟกต์ตอนกดหรือเอาเมาส์ชี้ */
+.btn-add-cart:active, .btn-add-cart:hover {
   background-color: #c9302c; 
 }
 
 .btn-add-cart:disabled { 
   background: #888; 
-  cursor: not-allowed;
+  cursor: not-allowed; 
 }
     .btn-buy:hover:not(:disabled) { background: #c9302c; }
 
