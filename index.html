@@ -68,7 +68,7 @@
     .ticket-img-container { width: 100%; background-color: #fff; display: flex; align-items: center; justify-content: center; }
     .ticket-img-container img { width: 100%; height: auto; display: block; object-fit: contain; }
     
-    /* ปุ่มหยิบใส่ตะกร้า ลอยทับรูป (ด้านล่าง) */
+    /* 🌟 ปุ่มหยิบใส่ตะกร้า ลอยทับรูป (ด้านล่าง) สีส้มทึบ */
     .btn-buy { 
       position: absolute;
       bottom: 0;
@@ -76,7 +76,7 @@
       width: 100%;
       z-index: 2; /* อยู่เหนือรูป */
       padding: 8px; 
-      background: rgba(0, 0, 0, 0.7); /* สีดำโปร่งแสง */
+      background: #ff9800; /* สีส้มทึบ ไม่โปร่งแสงแล้ว */
       color: #fff; 
       border: none; 
       font-size: 13px; 
@@ -86,11 +86,10 @@
       justify-content: center; 
       align-items: center; 
       gap: 6px; 
-      backdrop-filter: blur(2px); /* เพิ่มเอฟเฟกต์เบลอพื้นหลังรูปเล็กน้อย */
     }
     
-    .btn-buy:disabled { background: rgba(85, 85, 85, 0.8); color: #ccc; cursor: not-allowed; }
-    .btn-buy:hover:not(:disabled) { background: rgba(217, 83, 79, 0.9); /* เปลี่ยนเป็นสีแดงเมื่อชี้ */ }
+    .btn-buy:disabled { background: #888; color: #ddd; cursor: not-allowed; }
+    .btn-buy:hover:not(:disabled) { background: #e68a00; /* เปลี่ยนเป็นสีส้มเข้มขึ้นเมื่อชี้ */ }
 
     /* ส่วนสรุปตะกร้าและอื่นๆ */
     .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
