@@ -403,12 +403,24 @@
     let html = "";
     tickets.forEach(t => {
        let colorStyle = t.result.includes('ถูก') ? '#28a745' : (t.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
+       
+       // 🌟 กำหนดสีป้าย Badge ตามประเภทบริการ (รับใบจริง = สีน้ำเงิน / ฝากตรวจ = สีม่วง)
+       let badgeBgColor = t.shippingType === "รับใบจริง" ? "#0275d8" : "#6f42c1";
+       let badgeIcon = t.shippingType === "รับใบจริง" ? "fa-truck" : "fa-box-archive";
+       
        html += `
          <div class="my-ticket-card">
            <img src="${t.thumbUrl}" loading="lazy" alt="ลอตเตอรี่" onerror="this.src='https://via.placeholder.com/85?text=No+Image'">
            <div class="my-ticket-details">
              <div class="my-ticket-num">${t.ticketId}</div>
              <div class="my-ticket-set">งวด: ${t.drawDate}<br>ชุดที่ ${t.setNo}</div>
+             
+             <div style="margin: 6px 0;">
+               <span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
+                 <i class="fa-solid ${badgeIcon}"></i> ${t.shippingType}
+               </span>
+             </div>
+             
              <div style="font-weight:bold; color: ${colorStyle}; font-size:15px; margin-bottom:8px;">ผลรางวัล: ${t.result}</div>
            </div>
          </div>
