@@ -220,7 +220,7 @@
         document.getElementById("searchAreaTop").style.display = "block";
         
         const hasPendingDeposit = await checkActiveOrder();
-        if (!hasPendingOrder) doSearch(); 
+        if (!hasPendingDeposit) doSearch();
       }
     } catch (e) { document.getElementById("status").innerText = "❌ เชื่อมต่อ LINE ล้มเหลว"; }
   }
