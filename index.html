@@ -363,19 +363,52 @@
     } catch (e) { }
   }
 
-  function clickSelectTicket(ticketId) {
+function clickSelectTicket(ticketId) {
+    // หาเลขชุดเดียวกันทั้งหมดที่มีใน rawTicketsData
     let sameNumTickets = rawTicketsData.filter(t => t.ticketId === ticketId);
-    for(let i = 0; i < sameNumTickets.length; i++) {
-      let target = sameNumTickets[i];
+    
+    // วนลูปหยิบเข้าตะกร้าให้ครบทั้งชุดที่ว่างอยู่
+    let added = false;
+    sameNumTickets.forEach(target => {
       let uniqueKey = target.ticketId + "_" + target.setNo;
+      // เช็คว่าในตะกร้ามีใบนี้หรือยัง
       if(!cart.some(c => c.uniqueKey === uniqueKey)) {
         cart.push({ ticketId: target.ticketId, setNo: target.setNo, uniqueKey: uniqueKey });
-        break;
+        added = true;
+      }
+    });
+
+    if(added) {
+      updateCartUI();
+      renderUpdatedBadges(); 
+    } else {
+      alert("สลากเลขนี้ถูกหยิบใส่ตะกร้าไปหมดแล้วครับ");
+    }
+  }
+// ฟังก์ชันอัปเดตสถานะปุ่มทุกปุ่มบนแผงหวย
+  function updateButtonStates() {
+    // หาปุ่มทั้งหมดที่มี data-id
+    let buttons = document.querySelectorAll('.btn-buy');
+    buttons.forEach(btn => {
+      let tId = btn.getAttribute("data-id");
+      
+      // นับว่าเลขชุดนี้มีทั้งหมดกี่ใบ และถูกหยิบใส่ตะกร้าไปแล้วกี่ใบ
+      let totalSets = rawTicketsData.filter(t => t.ticketId === tId).length;
+      let selectedInCart = cart.filter(c => c.ticketId === tId).length;
+      
+      if(totalSets - selectedInCart <= 0) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> หมดแล้ว';
+        btn.style.backgroundColor = "#888";
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> หยิบใส่ตะกร้า';
+        btn.style.backgroundColor = "#d9534f";
       }
     }
-    updateCartUI();
   }
 
+  
   function updateCartUI() {
     const summaryArea = document.getElementById("summaryArea");
     const container = document.getElementById("selectedLotsContainer");
