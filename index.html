@@ -74,11 +74,20 @@
     .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #495057; }
     input[type="text"], input[type="tel"], input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; box-sizing: border-box; font-size: 15px; }
     
+    .btn-save { width: 100%; padding: 12px; background-color: #28a745; border: none; color: white; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+    .btn-back { width: 100%; padding: 10px; background-color: #6c757d; border: none; color: white; font-size: 14px; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+    
     #qrContainer { text-align: center; margin-top: 20px; display: none; }
     #qrContainer img { width: 220px; height: 220px; border: 1px solid #ccc; padding: 5px; background: #fff; }
     .status-msg { text-align: center; font-size: 13px; color: #666; margin-bottom: 10px; background: #e9ecef; padding: 6px; border-radius: 4px; }
     .timer-box { font-size: 18px; font-weight: bold; color: #d9534f; margin-top: 15px; background-color: #ffeeba; padding: 10px; border-radius: 8px; border: 1px solid #ffdf7e; }
     .alert-box { background-color: #ffe6e6; color: #cc0000; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ff9999; font-size: 14px; }
+    
+    /* การ์ดสลากของคุณ */
+    .my-ticket-card { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; align-items: center; }
+    .my-ticket-card img { width: 100%; max-width: 300px; height: auto; border-radius: 8px; border: 1px solid #eee; object-fit: contain; }
+    .my-ticket-details { width: 100%; text-align: center; }
+    .my-ticket-num { font-size: 26px; font-weight: bold; color: #d9534f; margin-bottom: 5px; letter-spacing: 2px; }
   </style>
 </head>
 <body>
@@ -99,6 +108,7 @@
   <div class="main-container">
     <div id="status" class="status-msg">กำลังเชื่อมต่อระบบ LINE...</div>
 
+    <!-- 💰 ส่วนแสดงผล Wallet ด้านบนแผงหวย -->
     <div id="walletSummaryCard" class="wallet-card" style="display: none;">
       <div class="wallet-balance">
         <div><i class="fa-solid fa-wallet"></i> บัญชีคงเหลือของคุณ:</div>
@@ -110,6 +120,7 @@
       </div>
     </div>
 
+    <!-- แผงหลักแสดงสลากหวย -->
     <div id="lottoSection" style="display: block;">
       <div id="searchAreaTop" style="display: none;">
         <div class="search-box">
@@ -129,6 +140,7 @@
         <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ (หักเงินทันที)</button>
       </div>
 
+      <!-- ส่วนโหลด QR Code สำหรับระบบเติมเงินเข้าวอลเล็ต -->
       <div id="qrContainer">
         <h3 style="color: #28a745;">🎉 สร้างใบนําฝากสำเร็จ!</h3>
         <div class="alert-box">
@@ -148,6 +160,7 @@
       </div>
     </div>
 
+    <!-- ฟอร์มธุรกรรมฝากเงิน/ถอนเงินหน้าบ้าน -->
     <div id="depositActionView" class="profile-section">
       <h3>📥 เติมเงินเข้าบัญชีคงเหลือ</h3>
       <div class="form-group"><label>ระบุจำนวนเงินที่ต้องการเติม (บาท)</label><input type="number" id="depositInputAmount" min="20" placeholder="ระบุจำนวนเงิน เช่น 100" required></div>
@@ -163,6 +176,7 @@
       <button class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
     </div>
 
+    <!-- ข้อมูลส่วนตัว -->
     <div id="profileSection" class="profile-section">
       <form id="profileForm">
         <input type="hidden" id="lineUserId">
@@ -180,6 +194,7 @@
       </form>
     </div>
 
+    <!-- สลากของฉัน -->
     <div id="myTicketsSection" class="my-tickets-section">
       <h3 style="color: #d9534f; margin-top: 5px; border-bottom: 2px solid #eee; padding-bottom: 10px;">🎟️ สลากที่สั่งซื้อสำเร็จ</h3>
       <div id="myTicketsList"></div>
@@ -219,13 +234,13 @@
         document.getElementById("walletSummaryCard").style.display = "block";
         document.getElementById("searchAreaTop").style.display = "block";
         
-        const hasPendingDeposit = await checkActiveOrder();
-        if (!hasPendingDeposit) doSearch();
+        const hasPendingDeposit = await checkActiveDeposit();
+        if (!hasPendingDeposit) doSearch(); 
       }
     } catch (e) { document.getElementById("status").innerText = "❌ เชื่อมต่อ LINE ล้มเหลว"; }
   }
 
-  async function checkActiveOrder() {
+  async function checkActiveDeposit() {
     try {
       const noCache = Date.now();
       const res = await fetch(`${BACKEND_URL}?action=checkPendingOrder&lineUserId=${myLineId}&_t=${noCache}`);
@@ -315,6 +330,12 @@
         if (item.imageUrl) groupedTickets[key].imageUrls.push(item.imageUrl);
       });
 
+      let shippingOptionsHtml = `<option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>`;
+      if (storeConfig && storeConfig.allowShipping) {
+        shippingOptionsHtml += `<option value="ส่งใบจริง">🚚 ส่งใบจริง (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} + ค่าส่งเหมา ${storeConfig.feeShipping} บ.)</option>`;
+      }
+      document.getElementById("shippingType").innerHTML = shippingOptionsHtml;
+
       Object.values(groupedTickets).forEach(group => {
         let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId).length;
         let availableCount = group.allSets.length - selectedInCartCount;
@@ -369,6 +390,18 @@
   function removeFromCart(uniqueKey) {
     cart = cart.filter(item => item.uniqueKey !== uniqueKey);
     updateCartUI();
+    // Re-render button text and state
+    let buttons = document.getElementsByClassName("btn-buy");
+    for(let i=0; i<buttons.length; i++) {
+        let btn = buttons[i];
+        let tId = btn.getAttribute("data-id");
+        let groupItems = rawTicketsData.filter(t => t.ticketId === tId);
+        let selectedInCart = cart.filter(c => c.ticketId === tId).length;
+        if(groupItems.length - selectedInCart > 0) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> หยิบใส่ตะกร้า';
+        }
+    }
   }
 
   function reCalculatePrice() {
@@ -408,9 +441,41 @@
   function toggleDropdown(event) { if (event) event.stopPropagation(); const dropdown = document.getElementById("myDropdown"); dropdown.style.display = dropdown.style.display === "block" ? "none" : "block"; }
   function openProfileSection() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("profileSection").style.display = "block"; }
   function closeProfileSection() { location.reload(); }
-  async function openMyTicketsSection() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("myTicketsSection").style.display = "block"; const res = await fetch(`${BACKEND_URL}?action=getMyTickets&lineUserId=${myLineId}`); const result = await res.json(); renderMyTickets(result.tickets); }
+  
+  async function openMyTicketsSection() { 
+    document.getElementById("lottoSection").style.display = "none"; 
+    document.getElementById("myTicketsSection").style.display = "block"; 
+    const res = await fetch(`${BACKEND_URL}?action=getMyTickets&lineUserId=${myLineId}`); 
+    const result = await res.json(); 
+    renderMyTickets(result.tickets); 
+  }
+  
   function closeMyTicketsSection() { location.reload(); }
-  function renderMyTickets(tickets) { let html = ""; tickets.forEach(t => { html += `<div class="my-ticket-card"><img src="${t.thumbUrl}"><div class="my-ticket-details"><div class="my-ticket-num">${t.ticketId}</div><div>งวด: ${t.drawDate} ชุด ${t.setNo}</div><div><span style="background:${t.shippingType==='รับใบจริง'?'#0275d8':'#6f42c1'};color:white;padding:2px 8px;border-radius:10px;font-size:11px;">${t.shippingType}</span></div><div style="font-weight:bold;color:#28a745;">ผล: ${t.result}</div></div></div>`; }); document.getElementById("myTicketsList").innerHTML = html || "ไม่มีข้อมูล"; }
+  
+  function renderMyTickets(tickets) { 
+    let html = ""; 
+    tickets.forEach(t => { 
+      let badgeBgColor = t.shippingType === "รับใบจริง" ? "#0275d8" : "#6f42c1";
+      let badgeIcon = t.shippingType === "รับใบจริง" ? "fa-truck" : "fa-box-archive";
+      let colorStyle = t.result.includes('ถูก') ? '#28a745' : (t.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
+
+      html += `<div class="my-ticket-card">
+                 <img src="${t.thumbUrl}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                 <div class="my-ticket-details">
+                   <div class="my-ticket-num">${t.ticketId}</div>
+                   <div>งวด: ${t.drawDate} ชุด ${t.setNo}</div>
+                   <div style="margin: 6px 0;">
+                     <span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
+                       <i class="fa-solid ${badgeIcon}"></i> ${t.shippingType}
+                     </span>
+                   </div>
+                   <div style="font-weight:bold;color:${colorStyle};">ผล: ${t.result}</div>
+                 </div>
+               </div>`; 
+    }); 
+    document.getElementById("myTicketsList").innerHTML = html || "<p style='text-align:center;'>ไม่มีประวัติสลากครับ</p>"; 
+  }
+
   window.onload = startLiff;
 </script>
 </body>
