@@ -31,7 +31,7 @@
     .total-stock-count { font-size: 14px; color: #666; margin-bottom: 15px; padding-left: 2px; font-weight: 500; }
     .total-stock-count span { color: #d9534f; font-weight: bold; }
 
-    /* 💰 การ์ดสรุปยอดเงิน Wallet ของลูกค้าด้านบน */
+    /* 💰 การ์ดสรุปยอดเงิน Wallet */
     .wallet-card { background: linear-gradient(135deg, #3b2a2a, #231818); border-radius: 12px; padding: 15px; margin-bottom: 15px; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .wallet-balance { font-size: 18px; font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
     .wallet-balance span { color: #ffeb3b; font-size: 22px; font-weight: 800; }
@@ -40,7 +40,6 @@
     .btn-deposit { background-color: #28a745; }
     .btn-withdraw { background-color: #0275d8; }
 
-    /* ดีไซน์แผงหวยแบบทับรูป (ซ้ายธงส้ม ขวาตั๋วหวย ล่างปุ่มแดง) */
     .ticket-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .ticket-card { position: relative; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #eee; }
     .ticket-img-container { width: 100%; display: block; }
@@ -61,7 +60,6 @@
     .btn-buy:active, .btn-buy:hover:not(:disabled) { background-color: #c9302c; }
     .btn-buy:disabled { background: #888; cursor: not-allowed; }
 
-    /* ส่วนอื่นๆ */
     .order-summary { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; display: none; }
     .cart-tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
     .cart-tag { background: #fff; border: 1px solid #ccc; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -83,7 +81,6 @@
     .timer-box { font-size: 18px; font-weight: bold; color: #d9534f; margin-top: 15px; background-color: #ffeeba; padding: 10px; border-radius: 8px; border: 1px solid #ffdf7e; }
     .alert-box { background-color: #ffe6e6; color: #cc0000; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ff9999; font-size: 14px; }
     
-    /* การ์ดสลากของคุณ */
     .my-ticket-card { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; align-items: center; }
     .my-ticket-card img { width: 100%; max-width: 300px; height: auto; border-radius: 8px; border: 1px solid #eee; object-fit: contain; }
     .my-ticket-details { width: 100%; text-align: center; }
@@ -109,13 +106,32 @@
     <div id="status" class="status-msg">กำลังเชื่อมต่อระบบ LINE...</div>
 
     <div id="walletSummaryCard" class="wallet-card" style="display: none;">
+      <div style="font-size: 13px; color: #ddd; margin-bottom: 5px;">💰 กระเป๋าเงินของคุณ</div>
+      
+      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #555; padding-bottom: 8px; margin-bottom: 8px;">
+        <div>💵 เงินหลัก (ถอนได้)</div>
+        <div style="font-weight: bold;"><span id="mainBalanceText">0.00</span> บ.</div>
+      </div>
+      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #555; padding-bottom: 8px; margin-bottom: 12px;">
+        <div style="color: #ff9800;">🎁 โบนัสแนะนำเพื่อน</div>
+        <div style="font-weight: bold; color: #ff9800;"><span id="affBalanceText">0.00</span> บ.</div>
+      </div>
+      
       <div class="wallet-balance">
-        <div><i class="fa-solid fa-wallet"></i> บัญชีคงเหลือของคุณ:</div>
+        <div style="font-size: 14px;">ยอดรวมซื้อหวยได้:</div>
         <div><span id="walletBalanceText">0.00</span> บาท</div>
       </div>
       <div class="wallet-actions">
         <button class="btn-wallet btn-deposit" onclick="openDepositView()"><i class="fa-solid fa-circle-plus"></i> เติมเงิน</button>
-        <button class="btn-wallet btn-withdraw" onclick="openWithdrawView()"><i class="fa-solid fa-money-bill-transfer"></i> ถอนเงิน</button>
+        <button class="btn-wallet btn-withdraw" onclick="openWithdrawView()"><i class="fa-solid fa-money-bill-transfer"></i> แจ้งถอน</button>
+      </div>
+
+      <div style="margin-top: 15px; padding: 10px; background: rgba(255, 152, 0, 0.15); border: 1px dashed #ff9800; border-radius: 8px;">
+        <div style="font-size: 12px; color: #ffeb3b; font-weight: bold; margin-bottom: 5px;"><i class="fa-solid fa-share-nodes"></i> ลิงก์ชวนเพื่อน (รับโบนัส 1% ของยอดซื้อ)</div>
+        <div style="display: flex; gap: 5px;">
+          <input type="text" id="myShareLink" readonly style="flex: 1; padding: 6px; font-size: 11px; border: none; border-radius: 4px; background: #fff; color: #333;">
+          <button onclick="copyShareLink()" style="background: #ff9800; color: #fff; border: none; border-radius: 4px; padding: 0 12px; font-weight: bold; cursor: pointer;">คัดลอก</button>
+        </div>
       </div>
     </div>
 
@@ -135,7 +151,7 @@
         <label style="font-weight: bold; margin-top: 10px; display: block;">เลือกรูปแบบบริการ:</label>
         <select id="shippingType" class="select-style" onchange="reCalculatePrice()"></select>
         <p style="font-size: 16px; font-weight: bold;">ยอดชำระสุทธิ: <span id="estPrice" style="color: #28a745;">0</span> บาท</p>
-        <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ (หักเงินทันที)</button>
+        <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ</button>
       </div>
 
       <div id="qrContainer">
@@ -161,15 +177,15 @@
       <h3>📥 เติมเงินเข้าบัญชีคงเหลือ</h3>
       <div class="form-group"><label>ระบุจำนวนเงินที่ต้องการเติม (บาท)</label><input type="number" id="depositInputAmount" min="20" placeholder="ระบุจำนวนเงิน เช่น 100" required></div>
       <button class="btn-save" onclick="submitDepositTx()">💵 ยืนยันเพื่อรับคิวอาร์โค้ด</button>
-      <button class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
+      <button type="button" class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
     </div>
 
     <div id="withdrawActionView" class="profile-section">
       <h3>📤 ส่งคำขอถอนเงินรางวัล</h3>
-      <p style="color: #d9534f; font-size: 13px;">*ระบบจะโอนเงินรางวัลคืนไปยังบัญชีธนาคารที่คุณลงทะเบียนไว้ในข้อมูลส่วนตัว</p>
+      <p style="color: #d9534f; font-size: 13px;">*ระบบจะโอนเงินรางวัลคืนไปยังบัญชีที่ลงทะเบียนไว้</p>
       <div class="form-group"><label>ระบุจำนวนเงินที่ต้องการถอน (บาท)</label><input type="number" id="withdrawInputAmount" min="50" placeholder="ระบุจำนวนเงิน" required></div>
       <button class="btn-save" style="background-color: #0275d8;" onclick="submitWithdrawTx()">💸 ยืนยันการแจ้งถอนเงิน</button>
-      <button class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
+      <button type="button" class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
     </div>
 
     <div id="profileSection" class="profile-section">
@@ -177,6 +193,10 @@
         <input type="hidden" id="lineUserId">
         <div class="form-group"><label>ชื่อ-นามสกุล (สำหรับจัดส่ง/ขึ้นเงิน)</label><input type="text" id="fullName" required></div>
         <div class="form-group"><label>เบอร์โทรศัพท์</label><input type="tel" id="phone" required></div>
+        <div class="form-group" style="background:#fff3cd; padding:10px; border-radius:6px; border:1px solid #ffeeba;">
+          <label style="color:#856404;">🎁 รหัสผู้แนะนำ (ถ้ามี)</label>
+          <input type="text" id="referrerCode" placeholder="ระบุรหัส 5 หลัก หรือเข้าผ่านลิงก์เพื่อน">
+        </div>
         <div class="form-group"><label>บ้านเลขที่ / หมู่บ้าน / ถนน</label><input type="text" id="addrHome" required></div>
         <div class="form-group"><label>แขวง / ตำบล</label><input type="text" id="addrSubDistrict" required></div>
         <div class="form-group"><label>เขต / อำเภอ</label><input type="text" id="addrDistrict" required></div>
@@ -192,7 +212,7 @@
     <div id="myTicketsSection" class="my-tickets-section">
       <h3 style="color: #d9534f; margin-top: 5px; border-bottom: 2px solid #eee; padding-bottom: 10px;">🎟️ สลากที่สั่งซื้อสำเร็จ</h3>
       <div id="myTicketsList"></div>
-      <button class="btn-back" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
+      <button type="button" class="btn-back" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
     </div>
   </div>
 
@@ -202,12 +222,31 @@
   let cart = []; 
   let rawTicketsData = []; 
   let countdownInterval; 
-  let storeClosingInterval; 
   let storeConfig = null; 
+
+  function copyShareLink() {
+    const copyText = document.getElementById("myShareLink");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value);
+    alert("คัดลอกลิงก์ชวนเพื่อนเรียบร้อยแล้ว!\nส่งลิงก์นี้ให้เพื่อนกดเข้าแผงหวยได้เลยครับ 💸");
+  }
 
   async function startLiff() {
     try {
       await liff.init({ liffId: LIFF_ID });
+
+      // ดึงพารามิเตอร์ URL ล็อกรหัสแนะนำ
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get('ref');
+      if (refCode) {
+        const refInput = document.getElementById("referrerCode");
+        refInput.value = refCode;
+        refInput.readOnly = true;
+        refInput.style.backgroundColor = "#e9ecef";
+        refInput.style.color = "#495057";
+      }
+
       if (!liff.isLoggedIn()) { liff.login(); return; }
       
       const profile = await liff.getProfile();
@@ -223,12 +262,15 @@
         document.getElementById("lottoSection").style.display = "none";
         document.getElementById("profileSection").style.display = "block";
       } else {
+        // อัปเดตกระเป๋าเงิน 2 ใบ
+        let mBal = parseFloat(result.data.balance) || 0;
+        let aBal = parseFloat(result.data.affBalance) || 0;
         document.getElementById("status").innerText = "👤 คุณ: " + result.data.fullName;
-        document.getElementById("walletBalanceText").innerText = parseFloat(result.data.balance).toFixed(2);
-        document.getElementById("walletSummaryCard").style.display = "block";
-        document.getElementById("searchAreaTop").style.display = "block";
-        
-        // เติมข้อมูลลงฟอร์มไว้ล่วงหน้า
+        document.getElementById("mainBalanceText").innerText = mBal.toFixed(2);
+        document.getElementById("affBalanceText").innerText = aBal.toFixed(2);
+        document.getElementById("walletBalanceText").innerText = (mBal + aBal).toFixed(2);
+
+        // เติมข้อมูลส่วนตัว
         document.getElementById("fullName").value = result.data.fullName;
         document.getElementById("phone").value = result.data.phone;
         document.getElementById("addrHome").value = result.data.addrHome;
@@ -238,9 +280,29 @@
         document.getElementById("addrZipcode").value = result.data.addrZipcode;
         document.getElementById("bankName").value = result.data.bankName;
         document.getElementById("bankAccount").value = result.data.bankAccount;
+        
+        // สร้างลิงก์ชวนเพื่อน
+        if (result.data.myReferralCode) {
+          document.getElementById("myShareLink").value = `https://liff.line.me/${LIFF_ID}?ref=${result.data.myReferralCode}`;
+        }
+
+        document.getElementById("walletSummaryCard").style.display = "block";
+        document.getElementById("searchAreaTop").style.display = "block";
 
         const hasPendingDeposit = await checkActiveDeposit();
-        if (!hasPendingDeposit) doSearch(); 
+        
+        // คืนชีพตะกร้าสินค้าที่ลูกค้าล็อกไว้ (ไม่เกิน 5 นาที)
+        const savedCartStr = localStorage.getItem("chokdee_cart");
+        if (savedCartStr) {
+          let savedObj = JSON.parse(savedCartStr);
+          if (Date.now() < savedObj.expire) { cart = savedObj.items; } 
+          else { localStorage.removeItem("chokdee_cart"); }
+        }
+
+        if (!hasPendingDeposit) {
+          await doSearch(); 
+          if(cart.length > 0) setTimeout(updateCartUI, 500);
+        }
       }
     } catch (e) { document.getElementById("status").innerText = "❌ เชื่อมต่อ LINE ล้มเหลว"; }
   }
@@ -267,31 +329,30 @@
     } catch (e) { return false; }
   }
 
-  function openDepositView() {
-    document.getElementById("lottoSection").style.display = "none";
-    document.getElementById("depositActionView").style.display = "block";
-  }
+  // === ระบบสลับหน้าจอ (SPA) ===
+  function openProfileSection() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("profileSection").style.display = "block"; }
+  function closeProfileSection() { document.getElementById("profileSection").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; document.getElementById("myDropdown").style.display = "none"; }
+  function openDepositView() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("depositActionView").style.display = "block"; }
+  function openWithdrawView() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("withdrawActionView").style.display = "block"; }
+  function closeTxView() { document.getElementById("depositActionView").style.display = "none"; document.getElementById("withdrawActionView").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; }
   
-  function openWithdrawView() {
-    document.getElementById("lottoSection").style.display = "none";
-    document.getElementById("withdrawActionView").style.display = "block";
+  async function openMyTicketsSection() { 
+    document.getElementById("lottoSection").style.display = "none"; 
+    document.getElementById("myTicketsSection").style.display = "block"; 
+    document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; padding: 20px;'>⏳ กำลังโหลดสลากของคุณ...</p>";
+    try {
+      const res = await fetch(`${BACKEND_URL}?action=getMyTickets&lineUserId=${myLineId}`); 
+      const result = await res.json(); 
+      renderMyTickets(result.tickets); 
+    } catch (e) { document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; color:red;'>❌ โหลดข้อมูลไม่สำเร็จ</p>"; }
   }
-
-  function closeTxView() {
-    document.getElementById("depositActionView").style.display = "none";
-    document.getElementById("withdrawActionView").style.display = "none";
-    document.getElementById("lottoSection").style.display = "block";
-  }
+  function closeMyTicketsSection() { document.getElementById("myTicketsSection").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; document.getElementById("myDropdown").style.display = "none"; }
 
   async function submitDepositTx() {
     const amount = document.getElementById("depositInputAmount").value;
     if(!amount || amount < 20) { alert("กรุณาระบุยอดเติมเงินขั้นต่ำ 20 บาทครับ"); return; }
-    
     document.getElementById("status").innerText = "⏳ กำลังสร้างใบนำฝากระบบ...";
-    const res = await fetch(BACKEND_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "requestDeposit", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount })
-    });
+    const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestDeposit", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
     const result = await res.json();
     if(result.status === "success") location.reload();
   }
@@ -299,17 +360,11 @@
   async function submitWithdrawTx() {
     const amount = document.getElementById("withdrawInputAmount").value;
     if(!amount || amount < 50) { alert("กรุณาระบุยอดแจ้งถอนขั้นต่ำ 50 บาทครับ"); return; }
-    
-    const res = await fetch(BACKEND_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount })
-    });
+    const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
     const result = await res.json();
-    alert(result.message);
-    location.reload();
+    alert(result.message); location.reload();
   }
 
-  // 🚀 OPTIMIZED: สร้าง HTML จาก Memory รวดเดียว
   async function doSearch() {
     try {
       const ticketsArea = document.getElementById("ticketsArea");
@@ -317,7 +372,8 @@
       
       const q = document.getElementById("searchQ").value;
       const noCache = Date.now();
-      const res = await fetch(`${BACKEND_URL}?action=search&q=${q}&_t=${noCache}`);
+      // 🌟 ส่ง lineUserId ไปให้ Backend ด้วย เพื่อเช็คหวยที่เราจองไว้
+      const res = await fetch(`${BACKEND_URL}?action=search&q=${q}&lineUserId=${myLineId}&_t=${noCache}`);
       const responseData = await res.json();
       
       storeConfig = responseData.config;
@@ -370,7 +426,6 @@
     } catch (e) { }
   }
 
-  // 🚀 OPTIMIZED: เจาะจงเปลี่ยนเฉพาะปุ่มที่โดนกด
   function clickSelectTicket(ticketId) {
     let sameNumTickets = rawTicketsData.filter(t => t.ticketId === ticketId);
     let added = false;
@@ -391,29 +446,20 @@
          btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> หมดแล้ว';
          btn.style.backgroundColor = "#888";
       }
-    } else {
-      alert("สลากเลขนี้ถูกหยิบใส่ตะกร้าไปหมดแล้วครับ");
-    }
+    } else { alert("สลากเลขนี้ถูกหยิบใส่ตะกร้าไปหมดแล้วครับ"); }
   }
   
   function updateCartUI() {
     const summaryArea = document.getElementById("summaryArea");
     const container = document.getElementById("selectedLotsContainer");
     
-    if (cart.length === 0) { 
-      summaryArea.style.display = "none"; 
-      return; 
-    }
+    if (cart.length === 0) { summaryArea.style.display = "none"; return; }
     
     summaryArea.style.display = "block";
-    container.innerHTML = cart.map(item => 
-      `<span class="cart-tag">${item.ticketId} (ชุด ${item.setNo}) <i class="fa-solid fa-circle-xmark" onclick="removeFromCart('${item.uniqueKey}')"></i></span>`
-    ).join('');
-    
+    container.innerHTML = cart.map(item => `<span class="cart-tag">${item.ticketId} (ชุด ${item.setNo}) <i class="fa-solid fa-circle-xmark" onclick="removeFromCart('${item.uniqueKey}')"></i></span>`).join('');
     reCalculatePrice();
   }
 
-  // 🚀 OPTIMIZED: อัปเดตเฉพาะปุ่มที่ถูกเอาออกจากตะกร้า
   function removeFromCart(uniqueKey) {
     let removedItem = cart.find(item => item.uniqueKey === uniqueKey);
     cart = cart.filter(item => item.uniqueKey !== uniqueKey);
@@ -436,33 +482,56 @@
     document.getElementById("estPrice").innerText = price;
   }
 
-  // 🚀 OPTIMIZED: ล็อคปุ่มป้องกันคนกดรัว
   async function submitOrder() {
     if(cart.length === 0) return;
     const type = document.getElementById("shippingType").value;
     let ticketIds = cart.map(item => item.ticketId);
     
+    let mBal = parseFloat(document.getElementById("mainBalanceText").innerText) || 0;
+    let aBal = parseFloat(document.getElementById("affBalanceText").innerText) || 0;
+    let totalWallet = mBal + aBal;
+    let totalCost = parseFloat(document.getElementById("estPrice").innerText) || 0;
     const btnOrder = document.querySelector(".btn-order");
+
+    // 🌟 ดักเช็คยอดเงินก่อนกดซื้อ -> ล็อกตะกร้า
+    if (totalWallet < totalCost) {
+      btnOrder.innerText = "⏳ กำลังจองสลาก...";
+      btnOrder.disabled = true;
+      
+      const response = await fetch(BACKEND_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "reserveTickets", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketIds } }) 
+      });
+      const result = await response.json();
+      
+      if(result.status === "success") {
+        localStorage.setItem("chokdee_cart", JSON.stringify({ items: cart, expire: Date.now() + 5*60*1000 }));
+        alert("⚠️ ยอดเงินไม่พอครับ ระบบได้ล็อกสลากชุดนี้ไว้ให้ 5 นาที กรุณาทำรายการเติมเงินครับ");
+        document.getElementById("depositInputAmount").value = Math.ceil(totalCost - totalWallet);
+        openDepositView();
+      } else { alert(result.message); }
+      
+      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
+      btnOrder.disabled = false;
+      return;
+    }
+    
     btnOrder.innerText = "⏳ กำลังดำเนินการ... ห้ามปิดหน้าจอ";
     btnOrder.disabled = true;
-    
     document.querySelectorAll('.btn-buy').forEach(b => b.disabled = true);
     
     try {
       const response = await fetch(BACKEND_URL, { 
         method: "POST", 
-        body: JSON.stringify({ 
-          action: "createOrder", 
-          token: SECRET_TOKEN, 
-          data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } 
-        }) 
+        body: JSON.stringify({ action: "createOrder", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketIds, shippingType: type } }) 
       });
       const result = await response.json();
       alert(result.message);
+      localStorage.removeItem("chokdee_cart");
       location.reload();
     } catch (e) { 
       btnOrder.disabled = false; 
-      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ (หักเงินทันที)";
+      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
       document.querySelectorAll('.btn-buy').forEach(b => b.disabled = false);
     }
   }
@@ -482,6 +551,7 @@
       lineUserId: document.getElementById("lineUserId").value,
       fullName: document.getElementById("fullName").value,
       phone: document.getElementById("phone").value,
+      referrerCode: document.getElementById("referrerCode").value,
       addrHome: document.getElementById("addrHome").value,
       addrSubDistrict: document.getElementById("addrSubDistrict").value,
       addrDistrict: document.getElementById("addrDistrict").value,
@@ -503,18 +573,6 @@
   }
 
   function toggleDropdown(event) { if (event) event.stopPropagation(); const dropdown = document.getElementById("myDropdown"); dropdown.style.display = dropdown.style.display === "block" ? "none" : "block"; }
-  function openProfileSection() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("profileSection").style.display = "block"; }
-  function closeProfileSection() { location.reload(); }
-  
-  async function openMyTicketsSection() { 
-    document.getElementById("lottoSection").style.display = "none"; 
-    document.getElementById("myTicketsSection").style.display = "block"; 
-    const res = await fetch(`${BACKEND_URL}?action=getMyTickets&lineUserId=${myLineId}`); 
-    const result = await res.json(); 
-    renderMyTickets(result.tickets); 
-  }
-  
-  function closeMyTicketsSection() { location.reload(); }
   
   function renderMyTickets(tickets) { 
     let html = ""; 
