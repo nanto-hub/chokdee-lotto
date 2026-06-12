@@ -97,8 +97,10 @@
       <span id="storeCloseTimer" class="close-timer"></span>
     </div>
     <div id="myDropdown" class="dropdown-menu">
-      <a href="#" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
-      <a href="#" onclick="openMyTicketsSection()">🎟️ สลากของคุณ</a>
+      <a href="#" id="menuProfile" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
+      <a href="#" id="menuTickets" onclick="openMyTicketsSection()">🎟️ สลากของคุณ</a>
+      <a href="#" id="menuLogin" onclick="liffLogin()" style="display:none; color: #28a745; font-weight: bold;"><i class="fa-solid fa-right-to-bracket"></i> ลงชื่อเข้าใช้งาน</a>
+      <a href="#" id="menuLogout" onclick="liffLogout()" style="display:none; color: #d9534f; font-weight: bold;"><i class="fa-solid fa-right-from-bracket"></i> ลงชื่อออก</a>
     </div>
   </div>
 
@@ -138,7 +140,6 @@
     <div id="lottoSection" style="display: block;">
       <div id="searchAreaTop" style="display: none;">
         <div class="search-box">
-          <!-- 🔧 FIX#10 — เพิ่ม oninput debounce แทน onenter เพื่อ UX ดีขึ้น -->
           <input type="text" id="searchQ" class="search-input" placeholder="พิมพ์เลขท้ายที่ต้องการ..." maxlength="6" oninput="debounceSearch()">
           <button class="btn-search" onclick="doSearch()">ค้นหา</button>
         </div>
@@ -164,8 +165,12 @@
         <div id="qrImageSection">
           <img id="payQr" src="" alt="PromptPay QR">
           <div class="timer-box">⏳ กรุณาโอนเงินภายในเวลา: <span id="timerDisplay">05:00</span></div>
-          <p style="font-size: 13px; color: #666; margin-top: 10px;">💡 บันทึกรูป/แคปหน้าจอ ไปสแกนในแอปธนาคาร โอนเสร็จแล้วส่งรูปสลิปเข้าแชท LINE ร้านได้เลยครับ!</p>
-          <button class="btn-back" onclick="location.reload()" style="background-color: #0275d8; width: 100%; padding: 12px;">✅ ฉันโอนและส่งสลิปเรียบร้อยแล้ว</button>
+          <p style="font-size: 13px; color: #666; margin-top: 10px;">💡 บันทึกรูป/แคปหน้าจอ ไปสแกนในแอปธนาคาร โอนเสร็จแล้วคลิกปุ่มสีเขียวด้านล่างส่งรูปเข้าไลน์ได้เลยครับ!</p>
+          
+          <a href="#" id="lineOaBtn" class="btn-order" style="background-color: #06C755; text-align: center; text-decoration: none; display: block; margin: 15px 0; padding: 12px; font-size:16px;">
+            <i class="fa-brands fa-line"></i> 💬 ส่งสลิปยืนยันใน LINE OA Click
+          </a>
+          <button class="btn-back" onclick="location.reload()" style="background-color: #0275d8; width: 100%; padding: 12px;">✅ ฉันโอนเรียบร้อยแล้ว (กลับหน้าหลัก)</button>
         </div>
         <div id="expiredSection" style="display: none;">
           <h3 style="color: #d9534f;">❌ หมดเวลาทำรายการ</h3>
@@ -225,13 +230,15 @@
 
 <script src="config.js"></script>
 <script>
+  // 🔧 วางลิงก์หน้าแชท LINE OA ของร้านตรงนี้ เพื่อใช้ดีดลูกค้ากลับไปส่งสลิป
+  const LINE_OA_CHAT_URL = "https://line.me/R/ti/p/@โชคดีล็อตเตอรี่"; 
+
   let myLineId = "";
   let cart = [];
   let rawTicketsData = [];
   let countdownInterval;
   let storeConfig = null;
 
-  // 🔧 FIX#10 — debounce สำหรับ search input
   let _searchDebounceTimer = null;
   function debounceSearch() {
     clearTimeout(_searchDebounceTimer);
@@ -250,6 +257,20 @@
     try {
       await liff.init({ liffId: LIFF_ID });
 
+      // 1. บังคับใช้เบราว์เซอร์ภายนอก (ถ้าตรวจพบว่ารันอยู่ในอินแอปของ LINE ให้ถอนตัวออกทันที)
+      if (liff.isInClient()) {
+        liff.openWindow({
+          url: window.location.href,
+          external: true
+        });
+        liff.closeWindow();
+        return;
+      }
+
+      // ฝัง URL ของ LINE OA เข้ากับปุ่มส่งสลิป
+      const lineOaBtn = document.getElementById("lineOaBtn");
+      if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
+
       const urlParams = new URLSearchParams(window.location.search);
       const refCode   = urlParams.get('ref');
       if (refCode) {
@@ -260,13 +281,39 @@
         refInput.style.color    = "#495057";
       }
 
-      if (!liff.isLoggedIn()) { liff.login(); return; }
+      // 3. ควบคุมสิทธิ์การจดจำโปรไฟล์สมาชิกบนเบราว์เซอร์ภายนอก
+      if (liff.isLoggedIn()) {
+        // หากเคย Login ไว้แล้ว ให้สลับปุ่มเป็น "ออกจากระบบ" และดึงแผงอัตโนมัติ
+        document.getElementById("menuLogin").style.display = "none";
+        document.getElementById("menuLogout").style.display = "block";
+        document.getElementById("menuProfile").style.display = "block";
+        document.getElementById("menuTickets").style.display = "block";
 
-      const profile = await liff.getProfile();
-      myLineId      = profile.userId;
-      document.getElementById("lineUserId").value = myLineId;
-      document.getElementById("status").innerText = "⏳ กำลังตรวจสอบข้อมูลสมาชิก...";
+        const profile = await liff.getProfile();
+        myLineId      = profile.userId;
+        document.getElementById("lineUserId").value = myLineId;
+        document.getElementById("status").innerText = "⏳ กำลังตรวจสอบข้อมูลสมาชิก...";
 
+        await loadUserDashboard();
+      } else {
+        // หากไม่ได้ล็อคอิน ให้แสดงเฉพาะแผงหวยเปล่าๆ ให้เลิกดูได้อย่างอิสระ แต่ซ่อนกระเป๋าเงิน
+        document.getElementById("menuLogin").style.display = "block";
+        document.getElementById("menuLogout").style.display = "none";
+        document.getElementById("menuProfile").style.display = "none";
+        document.getElementById("menuTickets").style.display = "none";
+
+        document.getElementById("status").innerText = "🔑 กรุณาลงชื่อเข้าใช้งานผ่านเมนูฟันเฟือง";
+        document.getElementById("walletSummaryCard").style.display = "none";
+        document.getElementById("searchAreaTop").style.display  = "block";
+        
+        await doSearch();
+      }
+    } catch (e) { document.getElementById("status").innerText = "❌ เชื่อมต่อ LINE ล้มเหลว"; }
+  }
+
+  // แยกฟังก์ชันการดึงข้อมูลส่วนตัวเพื่อเพิ่มประสิทธิภาพในการทำงานของระบบจดจำ ID
+  async function loadUserDashboard() {
+    try {
       const noCache  = Date.now();
       const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}&_t=${noCache}`);
       const result   = await response.json();
@@ -301,7 +348,6 @@
 
         const hasPendingDeposit = await checkActiveDeposit();
 
-        // 🔧 FIX#10 — คืนตะกร้า (sessionStorage แทน localStorage เพื่อความปลอดภัยกว่า)
         try {
           const savedCartStr = sessionStorage.getItem("chokdee_cart");
           if (savedCartStr) {
@@ -309,21 +355,32 @@
             if (Date.now() < savedObj.expire) { cart = savedObj.items; }
             else { sessionStorage.removeItem("chokdee_cart"); }
           }
-        } catch (e) { /* sessionStorage อาจถูกบล็อกใน incognito */ }
+        } catch (e) {}
 
         if (!hasPendingDeposit) {
           await doSearch();
           if (cart.length > 0) setTimeout(updateCartUI, 500);
         }
       }
-    } catch (e) { document.getElementById("status").innerText = "❌ เชื่อมต่อ LINE ล้มเหลว"; }
+    } catch (err) { document.getElementById("status").innerText = "❌ ดึงประวัติสมาชิกล้มเหลว"; }
   }
 
-  // 🔧 FIX#4 — เปลี่ยนเป็น action=checkPendingDeposit ให้ตรงกับ backend
+  // 🔧 เพิ่มฟังก์ชันผูกปุ่มล็อกอิน/ล็อกเอาท์ส่วนหน้าบ้าน
+  function liffLogin() {
+    liff.login();
+  }
+
+  function liffLogout() {
+    if (confirm("คุณต้องการลงชื่อออกจากระบบแผงหวยใช่หรือไม่?")) {
+      liff.logout();
+      location.reload();
+    }
+  }
+
   async function checkActiveDeposit() {
     try {
       const noCache = Date.now();
-      const res     = await fetch(`${BACKEND_URL}?action=checkPendingDeposit&lineUserId=${myLineId}&_t=${noCache}`);
+      const res   = await fetch(`${BACKEND_URL}?action=checkPendingDeposit&lineUserId=${myLineId}&_t=${noCache}`);
       const result  = await res.json();
       if (result.status === "pending") {
         const timeLeft = Math.floor((result.expireTime - Date.now()) / 1000);
@@ -333,7 +390,7 @@
           document.getElementById("summaryArea").style.display   = "none";
           document.getElementById("qrContainer").style.display   = "block";
           document.getElementById("finalPriceText").innerText    = result.finalAmount;
-          document.getElementById("payQr").src                   = result.qrCodeImgUrl;
+          document.getElementById("payQr").src                    = result.qrCodeImgUrl;
           startCountdown(timeLeft);
           return true;
         }
@@ -342,7 +399,6 @@
     } catch (e) { return false; }
   }
 
-  // === ระบบสลับหน้าจอ (SPA) ===
   function openProfileSection()    { document.getElementById("lottoSection").style.display = "none"; document.getElementById("profileSection").style.display = "block"; }
   function closeProfileSection()   { document.getElementById("profileSection").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; document.getElementById("myDropdown").style.display = "none"; }
   function openDepositView()       { document.getElementById("lottoSection").style.display = "none"; document.getElementById("depositActionView").style.display = "block"; }
@@ -362,6 +418,7 @@
   function closeMyTicketsSection() { document.getElementById("myTicketsSection").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; document.getElementById("myDropdown").style.display = "none"; }
 
   async function submitDepositTx() {
+    if (!liff.isLoggedIn()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการนำฝากครับ"); return; }
     const amount = document.getElementById("depositInputAmount").value;
     if (!amount || amount < 20) { alert("กรุณาระบุยอดเติมเงินขั้นต่ำ 20 บาทครับ"); return; }
     document.getElementById("status").innerText = "⏳ กำลังสร้างใบนำฝากระบบ...";
@@ -371,6 +428,7 @@
   }
 
   async function submitWithdrawTx() {
+    if (!liff.isLoggedIn()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการแจ้งถอนครับ"); return; }
     const amount = document.getElementById("withdrawInputAmount").value;
     if (!amount || amount < 50) { alert("กรุณาระบุยอดแจ้งถอนขั้นต่ำ 50 บาทครับ"); return; }
     const res    = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
@@ -379,7 +437,6 @@
     location.reload();
   }
 
-  // 🔧 FIX#10 — doSearch ป้องกัน concurrent call ด้วย flag
   let _isSearching = false;
   async function doSearch() {
     if (_isSearching) return;
@@ -390,7 +447,7 @@
 
       const q       = document.getElementById("searchQ").value;
       const noCache = Date.now();
-      const res     = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(q)}&lineUserId=${myLineId}&_t=${noCache}`);
+      const res     = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(q)}&lineUserId=${myLineId || ''}&_t=${noCache}`);
       const responseData = await res.json();
 
       storeConfig   = responseData.config;
@@ -448,11 +505,17 @@
   }
 
   function clickSelectTicket(ticketId) {
+    // ป้องกันการเลือกหวยเมื่อยังไม่ล็อกอิน
+    if (!liff.isLoggedIn()) {
+      alert("🔒 กรุณาลงชื่อเข้าใช้งานแผงหวยก่อนเลือกสลากลงตะกร้าครับ");
+      liff.login();
+      return;
+    }
+
     let sameNumTickets = rawTicketsData.filter(t => t.ticketId === ticketId);
     let added = false;
 
     sameNumTickets.forEach(target => {
-      // 🔧 FIX#5 — uniqueKey = "ticketId_setNo" แยกแต่ละชุดอย่างถูกต้อง
       let uniqueKey = target.ticketId + "_" + target.setNo;
       if (!cart.some(c => c.uniqueKey === uniqueKey)) {
         cart.push({ ticketId: target.ticketId, setNo: target.setNo, uniqueKey: uniqueKey });
@@ -491,7 +554,6 @@
 
     if (removedItem) {
       let btn = document.getElementById("btn-" + removedItem.ticketId);
-      // คืนปุ่มก็ต่อเมื่อ ticketId นั้นไม่มีใน cart อีกต่อไปเลย
       if (btn && !cart.some(c => c.ticketId === removedItem.ticketId)) {
         btn.disabled  = false;
         btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> หยิบใส่ตะกร้า';
@@ -508,20 +570,17 @@
   }
 
   async function submitOrder() {
+    if (!liff.isLoggedIn()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนสั่งซื้อครับ"); liff.login(); return; }
     if (cart.length === 0) return;
     const type = document.getElementById("shippingType").value;
 
-    // 🔧 FIX#5 — ส่ง uniqueKey (ticketId_setNo) แทน ticketId ซ้ำ
-    // backend reserveTickets และ createOrder รองรับรูปแบบนี้แล้ว
-    let ticketKeys = cart.map(item => item.uniqueKey); // ["123456_05", "123456_06"]
-
+    let ticketKeys = cart.map(item => item.uniqueKey);
     let mBal       = parseFloat(document.getElementById("mainBalanceText").innerText) || 0;
     let aBal       = parseFloat(document.getElementById("affBalanceText").innerText)  || 0;
     let totalWallet = mBal + aBal;
     let totalCost  = parseFloat(document.getElementById("estPrice").innerText) || 0;
     const btnOrder = document.querySelector(".btn-order");
 
-    // 🌟 ดักเช็คยอดเงินก่อนกดซื้อ → ล็อกตะกร้า
     if (totalWallet < totalCost) {
       btnOrder.innerText = "⏳ กำลังจองสลาก...";
       btnOrder.disabled  = true;
@@ -608,7 +667,7 @@
     const dropdown = document.getElementById("myDropdown");
     dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
   }
-  // ปิด dropdown เมื่อกดนอกพื้นที่
+
   document.addEventListener("click", function(e) {
     const dd = document.getElementById("myDropdown");
     if (dd && !document.getElementById("gearIcon").contains(e.target)) {
@@ -638,7 +697,6 @@
     });
     document.getElementById("myTicketsList").innerHTML = html || "<p style='text-align:center;'>ไม่มีประวัติสลากครับ</p>";
   }
-
 
   window.onload = startLiff;
 </script>
