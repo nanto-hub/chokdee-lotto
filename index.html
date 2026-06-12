@@ -85,6 +85,41 @@
     .my-ticket-card img { width: 100%; max-width: 300px; height: auto; border-radius: 8px; border: 1px solid #eee; object-fit: contain; }
     .my-ticket-details { width: 100%; text-align: center; }
     .my-ticket-num { font-size: 26px; font-weight: bold; color: #d9534f; margin-bottom: 5px; letter-spacing: 2px; }
+
+    /* โค้ดสร้างลายน้ำทับรูปสลากของฉัน (แบบทึบ 100% บังมิด) */
+    .watermark-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .watermark-wrapper img {
+      width: 100%;
+      height: auto;
+      border: 1px solid #eee;
+      object-fit: contain;
+      display: block;
+    }
+    .watermark-half {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 50%;
+      height: 50%;
+      background-color: #ffffff; /* ขาวทึบ 100% */
+      border-top-left-radius: 12px;
+      border-top: 1px solid #eee;
+      border-left: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 5px;
+      box-sizing: border-box;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -230,8 +265,8 @@
 
 <script src="config.js"></script>
 <script>
-  // 🔧 วางลิงก์หน้าแชท LINE OA ของร้านตรงนี้ เพื่อใช้ดีดลูกค้ากลับไปส่งสลิป
-  const LINE_OA_CHAT_URL = "https://line.me/R/ti/p/@908iwiki";
+  // 🔧 ลิงก์หน้าแชท LINE OA ของร้าน เพื่อใช้ดีดลูกค้ากลับไปส่งสลิป
+  const LINE_OA_CHAT_URL = "https://line.me/R/ti/p/@908iwiki"; 
 
   let myLineId = "";
   let cart = [];
@@ -257,7 +292,6 @@
     try {
       await liff.init({ liffId: LIFF_ID });
 
-      // 1. บังคับใช้เบราว์เซอร์ภายนอก (ถ้าตรวจพบว่ารันอยู่ในอินแอปของ LINE ให้ถอนตัวออกทันที)
       if (liff.isInClient()) {
         liff.openWindow({
           url: window.location.href,
@@ -267,7 +301,6 @@
         return;
       }
 
-      // ฝัง URL ของ LINE OA เข้ากับปุ่มส่งสลิป
       const lineOaBtn = document.getElementById("lineOaBtn");
       if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
 
@@ -281,9 +314,7 @@
         refInput.style.color    = "#495057";
       }
 
-      // 3. ควบคุมสิทธิ์การจดจำโปรไฟล์สมาชิกบนเบราว์เซอร์ภายนอก
       if (liff.isLoggedIn()) {
-        // หากเคย Login ไว้แล้ว ให้สลับปุ่มเป็น "ออกจากระบบ" และดึงแผงอัตโนมัติ
         document.getElementById("menuLogin").style.display = "none";
         document.getElementById("menuLogout").style.display = "block";
         document.getElementById("menuProfile").style.display = "block";
@@ -296,7 +327,6 @@
 
         await loadUserDashboard();
       } else {
-        // หากไม่ได้ล็อคอิน ให้แสดงเฉพาะแผงหวยเปล่าๆ ให้เลิกดูได้อย่างอิสระ แต่ซ่อนกระเป๋าเงิน
         document.getElementById("menuLogin").style.display = "block";
         document.getElementById("menuLogout").style.display = "none";
         document.getElementById("menuProfile").style.display = "none";
@@ -311,7 +341,6 @@
     } catch (e) { document.getElementById("status").innerText = "❌ เชื่อมต่อ LINE ล้มเหลว"; }
   }
 
-  // แยกฟังก์ชันการดึงข้อมูลส่วนตัวเพื่อเพิ่มประสิทธิภาพในการทำงานของระบบจดจำ ID
   async function loadUserDashboard() {
     try {
       const noCache  = Date.now();
@@ -365,10 +394,7 @@
     } catch (err) { document.getElementById("status").innerText = "❌ ดึงประวัติสมาชิกล้มเหลว"; }
   }
 
-  // 🔧 เพิ่มฟังก์ชันผูกปุ่มล็อกอิน/ล็อกเอาท์ส่วนหน้าบ้าน
-  function liffLogin() {
-    liff.login();
-  }
+  function liffLogin() { liff.login(); }
 
   function liffLogout() {
     if (confirm("คุณต้องการลงชื่อออกจากระบบแผงหวยใช่หรือไม่?")) {
@@ -467,7 +493,8 @@
         if (item.imageUrl) groupedTickets[key].imageUrls.push(item.imageUrl);
       });
 
-      let shippingOptionsHtml = `<option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + บริการ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>`;
+      // 🔧 แก้ไขคำว่า บริการ เป็น "ค่าเช่าที่จัดเก็บ"
+      let shippingOptionsHtml = `<option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + ค่าเช่าพื้นที่จัดเก็บ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>`;
       if (storeConfig && storeConfig.allowShipping) {
         shippingOptionsHtml += `<option value="ส่งใบจริง">🚚 ส่งใบจริง (บวกค่าส่งเหมา ${storeConfig.feeShipping} บ.)</option>`;
       }
@@ -505,7 +532,6 @@
   }
 
   function clickSelectTicket(ticketId) {
-    // ป้องกันการเลือกหวยเมื่อยังไม่ล็อกอิน
     if (!liff.isLoggedIn()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานแผงหวยก่อนเลือกสลากลงตะกร้าครับ");
       liff.login();
@@ -681,8 +707,18 @@
       let badgeBgColor = t.shippingType === "รับใบจริง" ? "#0275d8" : "#6f42c1";
       let badgeIcon    = t.shippingType === "รับใบจริง" ? "fa-truck" : "fa-box-archive";
       let colorStyle   = t.result.includes('ถูก') ? '#28a745' : (t.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
+      
       html += `<div class="my-ticket-card">
-                 <img src="${t.thumbUrl}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                 <div class="watermark-wrapper">
+                   <img src="${t.thumbUrl}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                   <div class="watermark-half">
+                     <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
+                       โชคดี<br>ล็อตเตอรี่<br>
+                       <span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
+                     </div>
+                   </div>
+                 </div>
+                 
                  <div class="my-ticket-details">
                    <div class="my-ticket-num">${t.ticketId}</div>
                    <div>งวด: ${t.drawDate} ชุด ${t.setNo}</div>
