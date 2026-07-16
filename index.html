@@ -120,6 +120,71 @@
       box-sizing: border-box;
       pointer-events: none;
     }
+
+    /* โค้ดควบคุมกล่องภาพชุดหวยแบบซ้อนทับ */
+    .ticket-stack-container {
+      width: 100%;
+      text-align: center;
+    }
+    .stacked-photos {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      margin-top: 5px;
+    }
+    /* แผ่นด้านหลัง: ตัดแสดงเฉพาะตัวเลขสลากแถวบน */
+    .back-stacked-sheet {
+      width: 100%;
+      max-width: 300px;
+      height: 60px; /* ควบคุมความสูงเพื่อเห็นเฉพาะเลขแถวบน */
+      overflow: hidden;
+      border: 1px solid #eee;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 -3px 6px rgba(0,0,0,0.05);
+      margin-bottom: -8px; /* ดึงแผ่นถัดไปขึ้นมาทับซ้อนเหลื่อมกัน */
+      background-color: #fff;
+    }
+    .back-stacked-sheet img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    /* แผ่นด้านหน้าสุด: แสดงเต็มใบตามสไตล์เดิม */
+    .front-stacked-sheet {
+      position: relative;
+      width: 100%;
+      max-width: 300px;
+      border-radius: 0 0 8px 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .front-stacked-sheet img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border: 1px solid #eee;
+    }
+    /* ปุ่มกดแสดง/ซ่อนภาพชุด */
+    .btn-toggle-stack {
+      margin-top: 10px;
+      background-color: #f0ad4e;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-toggle-stack:hover {
+      background-color: #ec971f;
+    }
   </style>
 </head>
 <body>
@@ -485,6 +550,12 @@
         return;
       }
 
+      // 🔧 ระบบแสดงข้อความแจ้งเตือนเมื่อดึงเลข 2 ตัวท้ายมาแสดงแทน
+      let fallbackHtml = "";
+      if (responseData.fallbackMessage) {
+        fallbackHtml = `<div style="grid-column: span 2; background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; border: 1px solid #ffeeba; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"><i class="fa-solid fa-lightbulb" style="color: #ffc107; font-size: 16px;"></i> ${responseData.fallbackMessage}</div>`;
+      }
+
       let groupedTickets = {};
       rawTicketsData.forEach(item => {
         let key = item.ticketId + "_" + item.drawDate;
@@ -493,7 +564,7 @@
         if (item.imageUrl) groupedTickets[key].imageUrls.push(item.imageUrl);
       });
 
-      // 🔧 แก้ไขคำว่า บริการ เป็น "ค่าเช่าที่จัดเก็บ"
+      // 🔧 แก้ไขคำว่า บริการ เป็น "ค่าเช่าพื้นที่จัดเก็บ"
       let shippingOptionsHtml = `<option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + ค่าเช่าพื้นที่จัดเก็บ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>`;
       if (storeConfig && storeConfig.allowShipping) {
         shippingOptionsHtml += `<option value="ส่งใบจริง">🚚 ส่งใบจริง (บวกค่าส่งเหมา ${storeConfig.feeShipping} บ.)</option>`;
@@ -523,7 +594,7 @@
           </div>`;
       }).join('');
 
-      ticketsArea.innerHTML = html;
+      ticketsArea.innerHTML = fallbackHtml + html;
     } catch (e) {
       document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center; color:red;'>❌ โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</p>";
     } finally {
@@ -701,36 +772,125 @@
     }
   });
 
+  // ฟังก์ชันควบคุมการแสดงผลภาพชุดหวยแบบซ้อนทับ
+  function toggleTicketStack(ticketId, btn, qty) {
+    const container = document.getElementById(`stack-${ticketId}`);
+    const singleCover = container.querySelector('.single-cover');
+    const stackedPhotos = container.querySelector('.stacked-photos');
+    
+    if (stackedPhotos.style.display === 'none') {
+      stackedPhotos.style.display = 'flex';
+      singleCover.style.display = 'none';
+      btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> ซ่อนภาพชุดสลาก';
+      btn.style.backgroundColor = '#6c757d';
+    } else {
+      stackedPhotos.style.display = 'none';
+      singleCover.style.display = 'block';
+      btn.innerHTML = `<i class="fa-solid fa-images"></i> แสดงภาพชุดเพิ่มเติม (${qty} ใบ)`;
+      btn.style.backgroundColor = '#f0ad4e';
+    }
+  }
+
   function renderMyTickets(tickets) {
     let html = "";
+    
+    // จัดกลุ่มสลากตามเลขงวดและเลขสลาก
+    let groupedMyTickets = {};
     tickets.forEach(t => {
-      let badgeBgColor = t.shippingType === "รับใบจริง" ? "#0275d8" : "#6f42c1";
-      let badgeIcon    = t.shippingType === "รับใบจริง" ? "fa-truck" : "fa-box-archive";
-      let colorStyle   = t.result.includes('ถูก') ? '#28a745' : (t.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
+      let key = t.ticketId + "_" + t.drawDate;
+      if (!groupedMyTickets[key]) {
+        groupedMyTickets[key] = {
+          ticketId: t.ticketId,
+          drawDate: t.drawDate,
+          result: t.result,
+          shippingType: t.shippingType,
+          sets: [],
+          imageUrls: []
+        };
+      }
+      groupedMyTickets[key].sets.push(t.setNo);
+      groupedMyTickets[key].imageUrls.push(t.thumbUrl);
+    });
+
+    Object.values(groupedMyTickets).forEach(group => {
+      let badgeBgColor = group.shippingType === "รับใบจริง" ? "#0275d8" : "#6f42c1";
+      let badgeIcon    = group.shippingType === "รับใบจริง" ? "fa-truck" : "fa-box-archive";
+      let colorStyle   = group.result.includes('ถูก') ? '#28a745' : (group.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
+      let qty          = group.sets.length;
       
+      let imageAreaHtml = "";
+      
+      if (qty >= 2) {
+        imageAreaHtml = `
+          <div class="ticket-stack-container" id="stack-${group.ticketId}">
+            <div class="single-cover watermark-wrapper">
+              <img src="${group.imageUrls[0]}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+              <div class="watermark-half">
+                <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
+                  โชคดี<br>ล็อตเตอรี่<br>
+                  <span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="stacked-photos" style="display: none;">
+              ${group.imageUrls.map((url, index) => {
+                if (index === group.imageUrls.length - 1) {
+                  return `
+                    <div class="front-stacked-sheet watermark-wrapper">
+                      <img src="${url}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                      <div class="watermark-half">
+                        <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
+                          โชคดี<br>ล็อตเตอรี่<br>
+                          <span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                } else {
+                  return `
+                    <div class="back-stacked-sheet">
+                      <img src="${url}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                    </div>
+                  `;
+                }
+              }).join('')}
+            </div>
+            
+            <button type="button" class="btn-toggle-stack" onclick="toggleTicketStack('${group.ticketId}', this, ${qty})">
+              <i class="fa-solid fa-images"></i> แสดงภาพชุดเพิ่มเติม (${qty} ใบ)
+            </button>
+          </div>
+        `;
+      } else {
+        imageAreaHtml = `
+          <div class="watermark-wrapper">
+            <img src="${group.imageUrls[0]}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+            <div class="watermark-half">
+              <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
+                โชคดี<br>ล็อตเตอรี่<br>
+                <span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       html += `<div class="my-ticket-card">
-                 <div class="watermark-wrapper">
-                   <img src="${t.thumbUrl}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
-                   <div class="watermark-half">
-                     <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
-                       โชคดี<br>ล็อตเตอรี่<br>
-                       <span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
-                     </div>
-                   </div>
-                 </div>
-                 
+                 ${imageAreaHtml}
                  <div class="my-ticket-details">
-                   <div class="my-ticket-num">${t.ticketId}</div>
-                   <div>งวด: ${t.drawDate} ชุด ${t.setNo}</div>
+                   <div class="my-ticket-num">${group.ticketId}</div>
+                   <div>งวด: ${group.drawDate} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${group.sets[0]}`}</div>
                    <div style="margin: 6px 0;">
                      <span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
-                       <i class="fa-solid ${badgeIcon}"></i> ${t.shippingType}
+                       <i class="fa-solid ${badgeIcon}"></i> ${group.shippingType}
                      </span>
                    </div>
-                   <div style="font-weight:bold;color:${colorStyle};">ผล: ${t.result}</div>
+                   <div style="font-weight:bold;color:${colorStyle};">ผล: ${group.result}</div>
                  </div>
                </div>`;
     });
+    
     document.getElementById("myTicketsList").innerHTML = html || "<p style='text-align:center;'>ไม่มีประวัติสลากครับ</p>";
   }
 
