@@ -665,11 +665,13 @@
       const result = await apiPost("lockTicket", { tickets: ticketKeysToLock });
 
       if (result.status !== "success") {
-        alert("กรุณาเลือกสินค้าอื่น สินค้าที่คุณเลือก มีลูกค้าท่านอื่นเลือกไปแล้ว");
+        alert(result.message || "จองสลากไม่สำเร็จ กรุณาลองใหม่");
         if (btn) {
-          btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> มีคนหยิบแล้ว';
-          btn.disabled = true;
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          btn.style.backgroundColor = originalBg;
         }
+        if (result.code === "TICKET_UNAVAILABLE") await doSearch();
         return; 
       }
     } catch (e) {
