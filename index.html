@@ -307,11 +307,23 @@
     if (typeof liff === "undefined" || !liff.isLoggedIn()) throw new Error("กรุณาเข้าสู่ระบบ LINE");
     const idToken = liff.getIDToken();
     if (!idToken) throw new Error("ไม่พบ LINE ID token");
-    const response = await fetch(BACKEND_URL, {
-      method: "POST",
-      body: JSON.stringify({ action, idToken, ...fields })
-    });
-    return response.json();
+    let response;
+    try {
+      response = await fetch(BACKEND_URL, {
+        method: "POST",
+        body: JSON.stringify({ action, idToken, ...fields })
+      });
+    } catch (error) {
+      throw new Error(`เรียก Backend ไม่สำเร็จ (${error.message}) ตรวจ BACKEND_URL และสิทธิ์การเข้าถึง Web App`);
+    }
+
+    const responseText = await response.text();
+    try {
+      return JSON.parse(responseText);
+    } catch (error) {
+      const responseSummary = responseText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+      throw new Error(`Backend ตอบกลับไม่ใช่ JSON (HTTP ${response.status})${responseSummary ? `: ${responseSummary}` : ""}`);
+    }
   }
 
   async function startApp() {
@@ -676,7 +688,7 @@
       }
     } catch (e) {
       console.error("Fetch lock error:", e);
-      alert("เชื่อมต่อขัดข้อง ไม่สามารถจองสลากได้ กรุณาลองใหม่อีกครั้งครับ");
+      alert(e.message || "เชื่อมต่อขัดข้อง ไม่สามารถจองสลากได้ กรุณาลองใหม่อีกครั้งครับ");
       if (btn) {
         btn.innerHTML = originalText;
         btn.disabled = false;
