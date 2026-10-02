@@ -393,7 +393,7 @@
 
   async function loadUserDashboard() {
     try {
-      const result = await apiPost("getProfile");
+      const result = await apiPost("getDashboard");
 
       if (result.status === "not_found") {
         hideAllSections();
@@ -421,29 +421,26 @@
         document.getElementById("walletSummaryCard").style.display = "block";
         document.getElementById("searchAreaTop").style.display = "block";
 
-        await checkActiveDeposit();
+        checkActiveDeposit(result.pendingDeposit);
       }
     } catch (err) { console.error("Profile load err", err); }
   }
 
-  async function checkActiveDeposit() {
-    try {
-      const result = await apiPost("checkPendingDeposit");
-      if (result.status === "pending") {
-        const timeLeft = Math.floor((result.expireTime - Date.now()) / 1000);
-        if (timeLeft > 0) {
-          document.getElementById("searchAreaTop").style.display = "none";
-          document.getElementById("ticketsArea").style.display = "none";
-          document.getElementById("summaryArea").style.display = "none";
-          document.getElementById("qrContainer").style.display = "block";
-          document.getElementById("finalPriceText").innerText = result.finalAmount;
-          document.getElementById("payQr").src = result.qrCodeImgUrl;
-          startCountdown(timeLeft);
-          return true;
-        }
+  function checkActiveDeposit(result) {
+    if (result && result.status === "pending") {
+      const timeLeft = Math.floor((result.expireTime - Date.now()) / 1000);
+      if (timeLeft > 0) {
+        document.getElementById("searchAreaTop").style.display = "none";
+        document.getElementById("ticketsArea").style.display = "none";
+        document.getElementById("summaryArea").style.display = "none";
+        document.getElementById("qrContainer").style.display = "block";
+        document.getElementById("finalPriceText").innerText = result.finalAmount;
+        document.getElementById("payQr").src = result.qrCodeImgUrl;
+        startCountdown(timeLeft);
+        return true;
       }
-      return false;
-    } catch (e) { return false; }
+    }
+    return false;
   }
 
   function openProfileSection() { 
