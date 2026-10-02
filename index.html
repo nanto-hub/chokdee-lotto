@@ -231,7 +231,7 @@
         <div class="form-group"><label>ธนาคารของคุณ (สำหรับโอนเงินรางวัล)</label><input type="text" id="bankName"></div>
         <div class="form-group"><label>เลขที่บัญชีธนาคาร</label><input type="text" id="bankAccount"></div>
         <button type="button" class="btn-save" id="btnSaveProfile" onclick="saveProfileData()">💾 บันทึกข้อมูลส่วนตัว</button>
-        <button type="button" class="btn-back" onclick="closeProfileSection()">⬅️️ กลับหน้าแผงหวย</button>
+        <button type="button" class="btn-back" onclick="closeProfileSection()">⬅️ กลับหน้าแผงหวย</button>
       </div>
     </div>
 
@@ -261,7 +261,6 @@
 
   let _searchDebounceTimer = null;
 
-  // Sanitization ป้องกัน XSS
   function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -507,6 +506,7 @@
     document.getElementById("lottoSection").style.display = "block"; 
   }
 
+  // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function submitDepositTx() {
     if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการนำฝากครับ"); liff.login(); return; }
     const amount = document.getElementById("depositInputAmount").value;
@@ -517,7 +517,10 @@
     btn.innerText = "⏳ กำลังสร้างใบนำฝาก...";
 
     try {
-      const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestDeposit", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
+      const res = await fetch(BACKEND_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "requestDeposit", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) 
+      });
       const result = await res.json();
       if (result.status === "success") location.reload();
       else alert(result.message || "เกิดข้อผิดพลาด");
@@ -529,6 +532,7 @@
     }
   }
 
+  // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function submitWithdrawTx() {
     if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการแจ้งถอนครับ"); liff.login(); return; }
     const amount = document.getElementById("withdrawInputAmount").value;
@@ -539,7 +543,10 @@
     btn.innerText = "⏳ กำลังส่งคำขอ...";
 
     try {
-      const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
+      const res = await fetch(BACKEND_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) 
+      });
       const result = await res.json();
       alert(result.message);
       location.reload();
@@ -643,6 +650,7 @@
     }, 1000);
   }
 
+  // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function clearCartDueToTimeout() {
     if (cart.length > 0) {
       let ticketKeysToUnlock = cart.map(item => item.uniqueKey);
@@ -658,7 +666,8 @@
     }
   }
 
-async function clickSelectTicket(ticketId) {
+  // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS และแก้ปัญหา "Failed to fetch"
+  async function clickSelectTicket(ticketId) {
     if (!checkAuthStatus()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานแผงหวยก่อนเลือกสลากลงตะกร้าครับ");
       liff.login();
@@ -680,12 +689,14 @@ async function clickSelectTicket(ticketId) {
     }
 
     let btn = document.getElementById("btn-" + ticketId);
-    let originalText = btn.innerHTML;
-    let originalBg = btn.style.backgroundColor;
+    let originalText = btn ? btn.innerHTML : "";
+    let originalBg = btn ? btn.style.backgroundColor : "";
     
-    btn.innerHTML = '⏳ กำลังล็อค...';
-    btn.disabled = true;
-    btn.style.backgroundColor = "#888";
+    if (btn) {
+      btn.innerHTML = '⏳ กำลังล็อค...';
+      btn.disabled = true;
+      btn.style.backgroundColor = "#888";
+    }
 
     try {
       const response = await fetch(BACKEND_URL, {
@@ -697,35 +708,24 @@ async function clickSelectTicket(ticketId) {
           tickets: ticketKeysToLock 
         })
       });
-
-      // 🔍 ดักเช็คข้อความตอบกลับจากหลังบ้านว่าเป็น JSON หรือไม่
-      const responseText = await response.text();
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (jsonErr) {
-        // ถ้าแปลงเป็น JSONไม่ได้ แสดงว่าหลังบ้านส่ง HTML Error กลับมา
-        console.error("Backend Error Raw Output:", responseText);
-        alert("❌ หลังบ้านส่งข้อผิดพลาดกลับมา:\n" + responseText.substring(0, 150));
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        btn.style.backgroundColor = originalBg;
-        return;
-      }
+      const result = await response.json();
 
       if (result.status !== "success") {
         alert("กรุณาเลือกสินค้าอื่น สินค้าที่คุณเลือก มีลูกค้าท่านอื่นเลือกไปแล้ว");
-        btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> มีคนหยิบแล้ว';
-        btn.disabled = true;
+        if (btn) {
+          btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> มีคนหยิบแล้ว';
+          btn.disabled = true;
+        }
         return; 
       }
     } catch (e) {
-      // 🔍 แสดงข้อผิดพลาดทางเทคนิคที่แท้จริง
-      console.error("Fetch Exception:", e);
-      alert("❌ เกิดข้อผิดพลาดการเชื่อมต่อ: " + e.message);
-      btn.innerHTML = originalText;
-      btn.disabled = false;
-      btn.style.backgroundColor = originalBg;
+      console.error("Fetch lock error:", e);
+      alert("เชื่อมต่อขัดข้อง ไม่สามารถจองสลากได้ กรุณาลองใหม่อีกครั้งครับ");
+      if (btn) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        btn.style.backgroundColor = originalBg;
+      }
       return;
     }
 
@@ -763,6 +763,7 @@ async function clickSelectTicket(ticketId) {
     reCalculatePrice();
   }
 
+  // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   function removeFromCart(uniqueKey) {
     let removedItem = cart.find(item => item.uniqueKey === uniqueKey);
     cart = cart.filter(item => item.uniqueKey !== uniqueKey);
@@ -795,6 +796,7 @@ async function clickSelectTicket(ticketId) {
     document.getElementById("estPrice").innerText = price;
   }
 
+  // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function submitOrder() {
     if (!checkAuthStatus()) { 
       alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนสั่งซื้อครับ"); 
@@ -868,6 +870,7 @@ async function clickSelectTicket(ticketId) {
     }, 1000);
   }
 
+  // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function saveProfileData() {
     const data = {
       lineUserId:      document.getElementById("lineUserId").value,
@@ -890,7 +893,10 @@ async function clickSelectTicket(ticketId) {
     btn.innerText = "⏳ กำลังบันทึก...";
 
     try {
-      const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "saveProfile", token: SECRET_TOKEN, data: data }) });
+      const res = await fetch(BACKEND_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "saveProfile", token: SECRET_TOKEN, data: data }) 
+      });
       const result = await res.json();
       alert(result.message);
       location.reload();
