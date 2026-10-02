@@ -17,7 +17,6 @@
     .store-badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: bold; color: white; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .bg-open   { background-color: #28a745; border: 1px solid #1e7e34; }
     .bg-closed { background-color: #6c757d; border: 1px solid #545b62; }
-    .close-timer { font-size: 10px; color: #fff; font-weight: normal; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; display: none; }
 
     .dropdown-menu { display: none; position: absolute; left: 15px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 170px; }
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
@@ -55,7 +54,7 @@
     .btn-buy {
       position: absolute; bottom: 0; left: 32%; width: 68%; height: 45px; z-index: 3;
       background-color: #d9534f; color: white; border: none; font-size: 13px; font-weight: bold; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 5px;
+      display: flex; align-items: center; justify-content: center; gap: 5px; transition: background-color 0.2s;
     }
     .btn-buy:active, .btn-buy:hover:not(:disabled) { background-color: #c9302c; }
     .btn-buy:disabled { background: #888; cursor: not-allowed; }
@@ -66,6 +65,7 @@
     .cart-tag i { color: #d9534f; cursor: pointer; font-size: 14px; padding: 2px; }
     .select-style { width: 100%; padding: 8px; border-radius: 4px; margin: 10px 0; }
     .btn-order { width: 100%; padding: 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    .btn-order:disabled { background: #888; cursor: not-allowed; }
 
     .profile-section, .my-tickets-section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: none; }
     .form-group { margin-bottom: 12px; }
@@ -107,7 +107,6 @@
     <span id="titleText">🎫 โชคดีล็อตเตอรี่</span>
     <div class="store-status-container">
       <span id="storeStatusBadge" class="store-badge">...</span>
-      <span id="storeCloseTimer" class="close-timer"></span>
     </div>
     <div id="myDropdown" class="dropdown-menu">
       <a href="#" id="menuProfile" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
@@ -165,7 +164,7 @@
         <label style="font-weight: bold; margin-top: 10px; display: block;">เลือกรูปแบบบริการ:</label>
         <select id="shippingType" class="select-style" onchange="reCalculatePrice()"></select>
         <p style="font-size: 16px; font-weight: bold;">ยอดชำระสุทธิ: <span id="estPrice" style="color: #28a745;">0</span> บาท</p>
-        <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ</button>
+        <button class="btn-order" id="btnSubmitOrder" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ</button>
       </div>
 
       <div id="qrContainer">
@@ -197,7 +196,7 @@
         <label>ระบุจำนวนเงินที่ต้องการเติม (บาท)</label>
         <input type="number" id="depositInputAmount" min="20" placeholder="ระบุจำนวนเงิน เช่น 100" required>
       </div>
-      <button class="btn-save" onclick="submitDepositTx()">💵 ยืนยันเพื่อรับคิวอาร์โค้ด</button>
+      <button class="btn-save" id="btnDepositSubmit" onclick="submitDepositTx()">💵 ยืนยันเพื่อรับคิวอาร์โค้ด</button>
       <button type="button" class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
     </div>
 
@@ -209,11 +208,11 @@
         <label>ระบุจำนวนเงินที่ต้องการถอน (บาท)</label>
         <input type="number" id="withdrawInputAmount" min="50" placeholder="ระบุจำนวนเงิน" required>
       </div>
-      <button class="btn-save" style="background-color: #0275d8;" onclick="submitWithdrawTx()">💸 ยืนยันการแจ้งถอนเงิน</button>
+      <button class="btn-save" id="btnWithdrawSubmit" style="background-color: #0275d8;" onclick="submitWithdrawTx()">💸 ยืนยันการแจ้งถอนเงิน</button>
       <button type="button" class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
     </div>
 
-    <!-- 4. หน้าแก้ไขข้อมูลส่วนตัว (แยกส่วนชัดเจน) -->
+    <!-- 4. หน้าแก้ไขข้อมูลส่วนตัว (แยกอิสระ) -->
     <div id="profileSection" class="profile-section">
       <h3 style="color: #d9534f; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px;">👤 ข้อมูลส่วนตัว</h3>
       <div id="profileForm">
@@ -231,12 +230,12 @@
         <div class="form-group"><label>รหัสไปรษณีย์</label><input type="tel" id="addrZipcode" maxlength="5" required></div>
         <div class="form-group"><label>ธนาคารของคุณ (สำหรับโอนเงินรางวัล)</label><input type="text" id="bankName"></div>
         <div class="form-group"><label>เลขที่บัญชีธนาคาร</label><input type="text" id="bankAccount"></div>
-        <button type="button" class="btn-save"  onclick="saveProfileData()">💾 บันทึกข้อมูลส่วนตัว</button>
-        <button type="button" class="btn-back"  onclick="closeProfileSection()">⬅️ กลับหน้าแผงหวย</button>
+        <button type="button" class="btn-save" id="btnSaveProfile" onclick="saveProfileData()">💾 บันทึกข้อมูลส่วนตัว</button>
+        <button type="button" class="btn-back" onclick="closeProfileSection()">⬅️️ กลับหน้าแผงหวย</button>
       </div>
     </div>
 
-    <!-- 5. หน้าแสดงเฉพาะสลากที่ซื้อแล้ว (แยกส่วนชัดเจน) -->
+    <!-- 5. หน้าแสดงสลากของคุณ (แยกอิสระ) -->
     <div id="myTicketsSection" class="my-tickets-section">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
         <h3 style="color: #d9534f; margin: 0;">🎟️ สลากของคุณ</h3>
@@ -261,6 +260,18 @@
   let cartExpirationTime = null;
 
   let _searchDebounceTimer = null;
+
+  // Sanitization ป้องกัน XSS
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   function debounceSearch() {
     clearTimeout(_searchDebounceTimer);
     _searchDebounceTimer = setTimeout(doSearch, 450);
@@ -403,12 +414,12 @@
       } else {
         let mBal = parseFloat(result.data.balance) || 0;
         let aBal = parseFloat(result.data.affBalance) || 0;
-        document.getElementById("status").innerText = "👤 คุณ: " + result.data.fullName;
+        document.getElementById("status").innerText = "👤 คุณ: " + escapeHtml(result.data.fullName);
         document.getElementById("mainBalanceText").innerText = mBal.toFixed(2);
         document.getElementById("affBalanceText").innerText = aBal.toFixed(2);
         document.getElementById("walletBalanceText").innerText = (mBal + aBal).toFixed(2);
-        document.getElementById("fullName").value = result.data.fullName;
-        document.getElementById("phone").value = result.data.phone;
+        document.getElementById("fullName").value = result.data.fullName || "";
+        document.getElementById("phone").value = result.data.phone || "";
         document.getElementById("addrHome").value        = result.data.addrHome || "";
         document.getElementById("addrSubDistrict").value = result.data.addrSubDistrict || "";
         document.getElementById("addrDistrict").value    = result.data.addrDistrict || "";
@@ -449,7 +460,6 @@
     } catch (e) { return false; }
   }
 
-  // 📌 แยกการเปิด-ปิดแต่ละส่วนอย่างเด็ดขาด
   function openProfileSection() { 
     hideAllSections(); 
     document.getElementById("profileSection").style.display = "block"; 
@@ -501,20 +511,44 @@
     if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการนำฝากครับ"); liff.login(); return; }
     const amount = document.getElementById("depositInputAmount").value;
     if (!amount || amount < 20) { alert("กรุณาระบุยอดเติมเงินขั้นต่ำ 20 บาทครับ"); return; }
-    document.getElementById("status").innerText = "⏳ กำลังสร้างใบนำฝากระบบ...";
-    const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestDeposit", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
-    const result = await res.json();
-    if (result.status === "success") location.reload();
+    
+    const btn = document.getElementById("btnDepositSubmit");
+    btn.disabled = true;
+    btn.innerText = "⏳ กำลังสร้างใบนำฝาก...";
+
+    try {
+      const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestDeposit", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
+      const result = await res.json();
+      if (result.status === "success") location.reload();
+      else alert(result.message || "เกิดข้อผิดพลาด");
+    } catch(e) {
+      alert("เชื่อมต่อขัดข้อง กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "💵 ยืนยันเพื่อรับคิวอาร์โค้ด";
+    }
   }
 
   async function submitWithdrawTx() {
     if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการแจ้งถอนครับ"); liff.login(); return; }
     const amount = document.getElementById("withdrawInputAmount").value;
     if (!amount || amount < 50) { alert("กรุณาระบุยอดแจ้งถอนขั้นต่ำ 50 บาทครับ"); return; }
-    const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
-    const result = await res.json();
-    alert(result.message);
-    location.reload();
+
+    const btn = document.getElementById("btnWithdrawSubmit");
+    btn.disabled = true;
+    btn.innerText = "⏳ กำลังส่งคำขอ...";
+
+    try {
+      const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
+      const result = await res.json();
+      alert(result.message);
+      location.reload();
+    } catch(e) {
+      alert("เชื่อมต่อขัดข้อง กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "💸 ยืนยันการแจ้งถอนเงิน";
+    }
   }
 
   let _isSearching = false;
@@ -541,7 +575,7 @@
 
       let fallbackHtml = "";
       if (responseData.fallbackMessage) {
-        fallbackHtml = `<div style="grid-column: span 2; background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; border: 1px solid #ffeeba; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"><i class="fa-solid fa-lightbulb" style="color: #ffc107; font-size: 16px;"></i> ${responseData.fallbackMessage}</div>`;
+        fallbackHtml = `<div style="grid-column: span 2; background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; border: 1px solid #ffeeba; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"><i class="fa-solid fa-lightbulb" style="color: #ffc107; font-size: 16px;"></i> ${escapeHtml(responseData.fallbackMessage)}</div>`;
       }
 
       let groupedTickets = {};
@@ -570,11 +604,11 @@
         return `
           <div class="ticket-card">
             <div class="ticket-img-container">
-              <img src="${coverImg}" loading="lazy">
+              <img src="${escapeHtml(coverImg)}" loading="lazy">
               <div class="ticket-left-info">
                 ${qty > 1 ? 'เลขชุด<br>' : ''}<span>${qty}</span> ใบ<br><span>${millions}</span> ล้าน
               </div>
-              <button class="btn-buy" id="btn-${group.ticketId}" data-id="${group.ticketId}" ${isButtonDisabled} onclick="clickSelectTicket('${group.ticketId}')">
+              <button class="btn-buy" id="btn-${escapeHtml(group.ticketId)}" data-id="${escapeHtml(group.ticketId)}" ${isButtonDisabled} onclick="clickSelectTicket('${escapeHtml(group.ticketId)}')">
                 <i class="fa-solid fa-basket-shopping"></i> ${buttonText}
               </button>
             </div>
@@ -708,7 +742,7 @@
 
     summaryArea.style.display = "block";
     container.innerHTML = cart.map(item =>
-      `<span class="cart-tag">${item.ticketId} (ชุด ${item.setNo}) <i class="fa-solid fa-circle-xmark" onclick="removeFromCart('${item.uniqueKey}')"></i></span>`
+      `<span class="cart-tag">${escapeHtml(item.ticketId)} (ชุด ${escapeHtml(item.setNo)}) <i class="fa-solid fa-circle-xmark" onclick="removeFromCart('${escapeHtml(item.uniqueKey)}')"></i></span>`
     ).join('');
     reCalculatePrice();
   }
@@ -759,27 +793,31 @@
     let aBal = parseFloat(document.getElementById("affBalanceText").innerText) || 0;
     let totalWallet = mBal + aBal;
     let totalCost = parseFloat(document.getElementById("estPrice").innerText) || 0;
-    const btnOrder = document.querySelector(".btn-order");
+    const btnOrder = document.getElementById("btnSubmitOrder");
 
     if (totalWallet < totalCost) {
       clearInterval(cartExpireTimerInterval);
       btnOrder.innerText = "⏳ กำลังจองสลาก...";
       btnOrder.disabled = true;
 
-      const response = await fetch(BACKEND_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "reserveTickets", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketKeys } })
-      });
-      const result = await response.json();
+      try {
+        const response = await fetch(BACKEND_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "reserveTickets", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketKeys } })
+        });
+        const result = await response.json();
 
-      if (result.status === "success") {
-        alert("⚠️ ยอดเงินไม่พอครับ ระบบได้ล็อกสลากชุดนี้ไว้ให้ 5 นาที กรุณาทำรายการเติมเงินครับ");
-        document.getElementById("depositInputAmount").value = Math.ceil(totalCost - totalWallet);
-        openDepositView();
-      } else { alert(result.message); }
-
-      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
-      btnOrder.disabled = false;
+        if (result.status === "success") {
+          alert("⚠️ ยอดเงินไม่พอครับ ระบบได้ล็อกสลากชุดนี้ไว้ให้ 5 นาที กรุณาทำรายการเติมเงินครับ");
+          document.getElementById("depositInputAmount").value = Math.ceil(totalCost - totalWallet);
+          openDepositView();
+        } else { alert(result.message); }
+      } catch(e) {
+        alert("เกิดข้อผิดพลาดในการจองสลาก กรุณาลองใหม่");
+      } finally {
+        btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
+        btnOrder.disabled = false;
+      }
       return;
     }
 
@@ -830,10 +868,22 @@
     };
 
     if (!data.fullName || !data.phone) { alert("กรุณากรอกชื่อและเบอร์โทรศัพท์ให้ครบถ้วนครับ"); return; }
-    const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "saveProfile", token: SECRET_TOKEN, data: data }) });
-    const result = await res.json();
-    alert(result.message);
-    location.reload();
+    
+    const btn = document.getElementById("btnSaveProfile");
+    btn.disabled = true;
+    btn.innerText = "⏳ กำลังบันทึก...";
+
+    try {
+      const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "saveProfile", token: SECRET_TOKEN, data: data }) });
+      const result = await res.json();
+      alert(result.message);
+      location.reload();
+    } catch(e) {
+      alert("บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "💾 บันทึกข้อมูลส่วนตัว";
+    }
   }
 
   function toggleDropdown(event) {
@@ -867,13 +917,12 @@
     }
   }
 
-  // 🎟️ ฟังก์ชันเรนเดอร์เฉพาะรายการสลากที่สั่งซื้อแล้ว (ไม่รวมข้อมูลส่วนตัว)
   function renderMyTickets(tickets) {
     const countBadge = document.getElementById("myTicketCountBadge");
     if (countBadge) countBadge.innerText = tickets.length + " ใบ";
 
     if (!tickets || tickets.length === 0) {
-      document.getElementById("myTicketsList").innerHTML = "<div style='text-align:center; padding: 30px; color:#999;'><i class="fa-solid fa-ticket-simple" style="font-size: 40px; margin-bottom: 10px;"></i><br>คุณยังไม่มีประวัติซื้อสลากครับ</div>";
+      document.getElementById("myTicketsList").innerHTML = "<div style='text-align:center; padding: 30px; color:#999;'><i class='fa-solid fa-ticket-simple' style='font-size: 40px; margin-bottom: 10px;'></i><br>คุณยังไม่มีประวัติซื้อสลากครับ</div>";
       return;
     }
 
@@ -897,9 +946,9 @@
       
       if (qty >= 2) {
         imageAreaHtml = `
-          <div class="ticket-stack-container" id="stack-${group.ticketId}">
+          <div class="ticket-stack-container" id="stack-${escapeHtml(group.ticketId)}">
             <div class="single-cover watermark-wrapper">
-              <img src="${group.imageUrls[0]}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+              <img src="${escapeHtml(group.imageUrls[0])}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
               <div class="watermark-half">
                 <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
                   โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
@@ -909,20 +958,20 @@
             <div class="stacked-photos" style="display: none;">
               ${group.imageUrls.map((url, index) => {
                 if (index === group.imageUrls.length - 1) {
-                  return `<div class="front-stacked-sheet watermark-wrapper"><img src="${url}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'"><div class="watermark-half"><div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span></div></div></div>`;
+                  return `<div class="front-stacked-sheet watermark-wrapper"><img src="${escapeHtml(url)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'"><div class="watermark-half"><div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span></div></div></div>`;
                 } else {
-                  return `<div class="back-stacked-sheet"><img src="${url}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'"></div>`;
+                  return `<div class="back-stacked-sheet"><img src="${escapeHtml(url)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'"></div>`;
                 }
               }).join('')}
             </div>
-            <button type="button" class="btn-toggle-stack" onclick="toggleTicketStack('${group.ticketId}', this, ${qty})">
+            <button type="button" class="btn-toggle-stack" onclick="toggleTicketStack('${escapeHtml(group.ticketId)}', this, ${qty})">
               <i class="fa-solid fa-images"></i> แสดงภาพชุดเพิ่มเติม (${qty} ใบ)
             </button>
           </div>`;
       } else {
         imageAreaHtml = `
           <div class="watermark-wrapper">
-            <img src="${group.imageUrls[0]}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+            <img src="${escapeHtml(group.imageUrls[0])}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
             <div class="watermark-half">
               <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
                 โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
@@ -931,13 +980,12 @@
           </div>`;
       }
 
-      html += `<div class="my-ticket-card">${imageAreaHtml}<div class="my-ticket-details"><div class="my-ticket-num">${group.ticketId}</div><div>งวด: ${group.drawDate} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${group.sets[0]}`}</div><div style="margin: 6px 0;"><span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid ${badgeIcon}"></i> ${group.shippingType}</span></div><div style="font-weight:bold;color:${colorStyle};">ผล: ${group.result}</div></div></div>`;
+      html += `<div class="my-ticket-card">${imageAreaHtml}<div class="my-ticket-details"><div class="my-ticket-num">${escapeHtml(group.ticketId)}</div><div>งวด: ${escapeHtml(group.drawDate)} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${escapeHtml(group.sets[0])}`}</div><div style="margin: 6px 0;"><span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid ${badgeIcon}"></i> ${escapeHtml(group.shippingType)}</span></div><div style="font-weight:bold;color:${colorStyle};">ผล: ${escapeHtml(group.result)}</div></div></div>`;
     });
     
     document.getElementById("myTicketsList").innerHTML = html;
   }
 
-  // เคลียร์สลากค้างหากผู้ใช้ปิดแท็บหรือสลับแอป
   window.addEventListener('beforeunload', function() {
     if (cart.length > 0) {
       let ticketKeysToUnlock = cart.map(item => item.uniqueKey);
