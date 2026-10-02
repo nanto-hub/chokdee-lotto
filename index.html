@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
-    /* ... (CSS ส่วนบนเหมือนเดิมทั้งหมด) ... */
     body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f6f9; margin: 0; padding: 0; color: #333; }
     .header-bar { background-color: #d9534f; color: white; padding: 15px; text-align: center; position: relative; font-size: 20px; font-weight: bold; }
     .setting-btn { position: absolute; left: 15px; top: 15px; color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; padding: 5px; }
@@ -122,7 +121,6 @@
     <div id="status" class="status-msg">กำลังตั้งค่าการเชื่อมต่อ...</div>
 
     <div id="walletSummaryCard" class="wallet-card" style="display: none;">
-      <!-- ... (ส่วนแสดงกระเป๋าเงินเหมือนเดิม) ... -->
       <div style="font-size: 13px; color: #ddd; margin-bottom: 5px;">💰 กระเป๋าเงินของคุณ</div>
       <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #555; padding-bottom: 8px; margin-bottom: 8px;">
         <div>💵 เงินหลัก (ถอนได้)</div>
@@ -161,9 +159,7 @@
 
       <div id="summaryArea" class="order-summary">
         <h3>🛒 ตะกร้าสินค้าของคุณ</h3>
-        <!-- ⏱️ เพิ่มการแสดงเวลานับถอยหลังตรงนี้ -->
         <div id="cartTimerDisplay" style="color: #d9534f; font-size: 15px; text-align: center; margin-bottom: 10px;"></div>
-        
         <div id="selectedLotsContainer" class="cart-tags-container"></div>
         <label style="font-weight: bold; margin-top: 10px; display: block;">เลือกรูปแบบบริการ:</label>
         <select id="shippingType" class="select-style" onchange="reCalculatePrice()"></select>
@@ -171,11 +167,10 @@
         <button class="btn-order" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ</button>
       </div>
 
-      <!-- ... (ส่วนการจ่ายเงินและอื่นๆ ด้านล่างเหมือนเดิม) ... -->
       <div id="qrContainer">
         <h3 style="color: #28a745;">🎉 สร้างใบนําฝากสำเร็จ!</h3>
         <div class="alert-box">
-          <b>⚠️ สำคัญมาก:</b> กรุณาโอนเงินให้ <u>ตรงกับยอดเศษสตางค์ที่ระบุ</u> ระบบบอทจึงจะเติมเครดิตเข้าวอลเล็ตให้คุณอัตโนมัติครับ
+          <b>⚠️️ สำคัญมาก:</b> กรุณาโอนเงินให้ <u>ตรงกับยอดเศษสตางค์ที่ระบุ</u> ระบบบอทจึงจะเติมเครดิตเข้าวอลเล็ตให้คุณอัตโนมัติครับ
         </div>
         <p style="color: #d9534f; font-weight: bold; font-size: 20px;">ยอดเงินนำฝาก: <span id="finalPriceText">0.00</span> บาท</p>
         <div id="qrImageSection">
@@ -194,7 +189,6 @@
       </div>
     </div>
 
-    <!-- ... (ฟอร์มส่วนตัวเหมือนเดิม) ... -->
     <div id="depositActionView" class="profile-section">
       <h3>📥 เติมเงินเข้าบัญชีคงเหลือ</h3>
       <div class="form-group">
@@ -254,7 +248,6 @@
   let countdownInterval;
   let storeConfig = null;
   
-  // ⏱️ ตัวแปรสำหรับระบบเวลาตะกร้า
   let cartExpireTimerInterval = null;
   let cartExpirationTime = null;
 
@@ -270,6 +263,18 @@
     copyText.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(copyText.value);
     alert("คัดลอกลิงก์ชวนเพื่อนเรียบร้อยแล้ว!\nส่งลิงก์นี้ให้เพื่อนกดเข้าแผงหวยได้เลยครับ 💸");
+  }
+
+  // 🛡️ ฟังก์ชันกลางยืนยันสิทธิ์การใช้งาน
+  function checkAuthStatus() {
+    if (myLineId) return true;
+    const cached = localStorage.getItem('chokdee_lineId');
+    if (cached) {
+      myLineId = cached;
+      document.getElementById("lineUserId").value = myLineId;
+      return true;
+    }
+    return false;
   }
 
   async function startApp() {
@@ -364,7 +369,8 @@
   function liffLogout() {
     if (confirm("คุณต้องการลงชื่อออกจากระบบแผงหวยใช่หรือไม่?")) {
       localStorage.removeItem('chokdee_lineId');
-      liff.logout();
+      myLineId = "";
+      if (liff.isLoggedIn()) liff.logout();
       location.reload();
     }
   }
@@ -386,7 +392,13 @@
         document.getElementById("walletBalanceText").innerText = (mBal + aBal).toFixed(2);
         document.getElementById("fullName").value = result.data.fullName;
         document.getElementById("phone").value = result.data.phone;
-        // ... (ข้อมูลอื่นๆ) ...
+        document.getElementById("addrHome").value        = result.data.addrHome || "";
+        document.getElementById("addrSubDistrict").value = result.data.addrSubDistrict || "";
+        document.getElementById("addrDistrict").value    = result.data.addrDistrict || "";
+        document.getElementById("addrProvince").value    = result.data.addrProvince || "";
+        document.getElementById("addrZipcode").value     = result.data.addrZipcode || "";
+        document.getElementById("bankName").value        = result.data.bankName || "";
+        document.getElementById("bankAccount").value     = result.data.bankAccount || "";
         
         if (result.data.myReferralCode) {
           document.getElementById("myShareLink").value = `https://liff.line.me/${LIFF_ID}?ref=${result.data.myReferralCode}`;
@@ -441,9 +453,8 @@
   }
   function closeMyTicketsSection() { document.getElementById("myTicketsSection").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; document.getElementById("myDropdown").style.display = "none"; }
 
-  // ... (ฟังก์ชันฝาก-ถอน เหมือนเดิม) ...
   async function submitDepositTx() {
-    if (!liff.isLoggedIn() && !localStorage.getItem('chokdee_lineId')) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการนำฝากครับ"); liff.login(); return; }
+    if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการนำฝากครับ"); liff.login(); return; }
     const amount = document.getElementById("depositInputAmount").value;
     if (!amount || amount < 20) { alert("กรุณาระบุยอดเติมเงินขั้นต่ำ 20 บาทครับ"); return; }
     document.getElementById("status").innerText = "⏳ กำลังสร้างใบนำฝากระบบ...";
@@ -453,7 +464,7 @@
   }
 
   async function submitWithdrawTx() {
-    if (!liff.isLoggedIn() && !localStorage.getItem('chokdee_lineId')) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการแจ้งถอนครับ"); liff.login(); return; }
+    if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการแจ้งถอนครับ"); liff.login(); return; }
     const amount = document.getElementById("withdrawInputAmount").value;
     if (!amount || amount < 50) { alert("กรุณาระบุยอดแจ้งถอนขั้นต่ำ 50 บาทครับ"); return; }
     const res = await fetch(BACKEND_URL, { method: "POST", body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) });
@@ -532,7 +543,6 @@
     }
   }
 
-  // 🚀 ฟังก์ชันเริ่มจับเวลา 5 นาที สำหรับตะกร้า
   function startCartTimer() {
     clearInterval(cartExpireTimerInterval);
     cartExpireTimerInterval = setInterval(() => {
@@ -553,12 +563,9 @@
     }, 1000);
   }
 
-  // 🚀 ฟังก์ชันเคลียร์ตะกร้าเมื่อเวลาหมด
   async function clearCartDueToTimeout() {
     if (cart.length > 0) {
       let ticketKeysToUnlock = cart.map(item => item.uniqueKey);
-      
-      // ส่งคำสั่งไปปลดล็อคสลากที่ฝั่งหลังบ้าน
       fetch(BACKEND_URL, {
         method: "POST",
         body: JSON.stringify({ action: "unlockTicket", token: SECRET_TOKEN, tickets: ticketKeysToUnlock })
@@ -571,9 +578,8 @@
     }
   }
 
-  // 🚀 ปรับปรุงระบบหยิบใส่ตะกร้า ให้เช็คสิทธิ์กับหลังบ้านก่อนว่ามีใครหยิบไปหรือยัง
   async function clickSelectTicket(ticketId) {
-    if (!liff.isLoggedIn() && !localStorage.getItem('chokdee_lineId')) {
+    if (!checkAuthStatus()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานแผงหวยก่อนเลือกสลากลงตะกร้าครับ");
       liff.login();
       return;
@@ -597,13 +603,11 @@
     let originalText = btn.innerHTML;
     let originalBg = btn.style.backgroundColor;
     
-    // เปลี่ยนสถานะปุ่มชั่วคราวระหว่างรอหลังบ้านยืนยัน
     btn.innerHTML = '⏳ กำลังล็อค...';
     btn.disabled = true;
     btn.style.backgroundColor = "#888";
 
     try {
-      // ยิงคำสั่งไปเช็คสถานะและล็อคที่หลังบ้าน
       const response = await fetch(BACKEND_URL, {
         method: "POST",
         body: JSON.stringify({ 
@@ -628,7 +632,6 @@
       return;
     }
 
-    // ถ้าผ่าน (ไม่มีใครแย่ง) ค่อยเอาลงตะกร้าจริง
     sameNumTickets.forEach(target => {
       let uniqueKey = target.ticketId + "_" + target.setNo;
       if (!cart.some(c => c.uniqueKey === uniqueKey)) {
@@ -637,8 +640,6 @@
     });
 
     updateCartUI();
-    
-    // เริ่มจับเวลา 5 นาที หรือรีเซ็ตเวลาใหม่ถ้าเพิ่งหยิบเพิ่ม
     cartExpirationTime = Date.now() + 5 * 60 * 1000;
     startCartTimer();
 
@@ -665,14 +666,12 @@
     reCalculatePrice();
   }
 
-  // 🚀 อัปเดตฟังก์ชันเอาสลากออกจากตะกร้า เพื่อส่งคำสั่งปลดล็อคให้หลังบ้านด้วย
   function removeFromCart(uniqueKey) {
     let removedItem = cart.find(item => item.uniqueKey === uniqueKey);
     cart = cart.filter(item => item.uniqueKey !== uniqueKey);
     updateCartUI();
 
     if (removedItem) {
-      // ส่งคำสั่งไปปลดล็อคสลากที่ฝั่งหลังบ้าน
       fetch(BACKEND_URL, {
         method: "POST",
         body: JSON.stringify({ action: "unlockTicket", token: SECRET_TOKEN, tickets: [uniqueKey] })
@@ -686,7 +685,6 @@
       }
     }
 
-    // ถ้าลบจนตะกร้าว่างเปล่า ให้หยุดเวลา
     if (cart.length === 0) {
       clearInterval(cartExpireTimerInterval);
       document.getElementById("cartTimerDisplay").innerText = "";
@@ -701,7 +699,7 @@
   }
 
   async function submitOrder() {
-    if (!liff.isLoggedIn() && !localStorage.getItem('chokdee_lineId')) { 
+    if (!checkAuthStatus()) { 
       alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนสั่งซื้อครับ"); 
       liff.login(); 
       return; 
@@ -717,7 +715,6 @@
     const btnOrder = document.querySelector(".btn-order");
 
     if (totalWallet < totalCost) {
-      // เคลียร์เวลาชั่วคราวเพราะส่งไปหน้าฝากเงิน
       clearInterval(cartExpireTimerInterval);
       btnOrder.innerText = "⏳ กำลังจองสลาก...";
       btnOrder.disabled = true;
@@ -739,7 +736,6 @@
       return;
     }
 
-    // ปิดเวลา เพราะกำลังจะชำระเงินสำเร็จ
     clearInterval(cartExpireTimerInterval);
     btnOrder.innerText = "⏳ กำลังดำเนินการ... ห้ามปิดหน้าจอ";
     btnOrder.disabled = true;
@@ -760,7 +756,6 @@
     }
   }
 
-  // ... (ส่วนฟังก์ชัน saveProfile, toggleDropdown และรูปภาพหวยชุด เหมือนเดิมทั้งหมด) ...
   function startCountdown(durationSeconds) {
     let timeLeft = durationSeconds;
     countdownInterval = setInterval(() => {
