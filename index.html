@@ -147,6 +147,7 @@
       </div>
     </div>
 
+    <!-- 1. แผงค้นหาและแสดงรายการหวย -->
     <div id="lottoSection" style="display: block;">
       <div id="searchAreaTop" style="display: none;">
         <div class="search-box">
@@ -170,7 +171,7 @@
       <div id="qrContainer">
         <h3 style="color: #28a745;">🎉 สร้างใบนําฝากสำเร็จ!</h3>
         <div class="alert-box">
-          <b>⚠️️ สำคัญมาก:</b> กรุณาโอนเงินให้ <u>ตรงกับยอดเศษสตางค์ที่ระบุ</u> ระบบบอทจึงจะเติมเครดิตเข้าวอลเล็ตให้คุณอัตโนมัติครับ
+          <b>⚠️ สำคัญมาก:</b> กรุณาโอนเงินให้ <u>ตรงกับยอดเศษสตางค์ที่ระบุ</u> ระบบบอทจึงจะเติมเครดิตเข้าวอลเล็ตให้คุณอัตโนมัติครับ
         </div>
         <p style="color: #d9534f; font-weight: bold; font-size: 20px;">ยอดเงินนำฝาก: <span id="finalPriceText">0.00</span> บาท</p>
         <div id="qrImageSection">
@@ -189,6 +190,7 @@
       </div>
     </div>
 
+    <!-- 2. หน้าเติมเงิน -->
     <div id="depositActionView" class="profile-section">
       <h3>📥 เติมเงินเข้าบัญชีคงเหลือ</h3>
       <div class="form-group">
@@ -199,6 +201,7 @@
       <button type="button" class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
     </div>
 
+    <!-- 3. หน้าแจ้งถอนเงิน -->
     <div id="withdrawActionView" class="profile-section">
       <h3>📤 ส่งคำขอถอนเงินรางวัล</h3>
       <p style="color: #d9534f; font-size: 13px;">*ระบบจะโอนเงินรางวัลคืนไปยังบัญชีที่ลงทะเบียนไว้</p>
@@ -210,7 +213,9 @@
       <button type="button" class="btn-back" onclick="closeTxView()">⬅️ กลับหน้าแผงหวย</button>
     </div>
 
+    <!-- 4. หน้าแก้ไขข้อมูลส่วนตัว (แยกส่วนชัดเจน) -->
     <div id="profileSection" class="profile-section">
+      <h3 style="color: #d9534f; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px;">👤 ข้อมูลส่วนตัว</h3>
       <div id="profileForm">
         <input type="hidden" id="lineUserId">
         <div class="form-group"><label>ชื่อ-นามสกุล (สำหรับจัดส่ง/ขึ้นเงิน)</label><input type="text" id="fullName" required></div>
@@ -231,8 +236,12 @@
       </div>
     </div>
 
+    <!-- 5. หน้าแสดงเฉพาะสลากที่ซื้อแล้ว (แยกส่วนชัดเจน) -->
     <div id="myTicketsSection" class="my-tickets-section">
-      <h3 style="color: #d9534f; margin-top: 5px; border-bottom: 2px solid #eee; padding-bottom: 10px;">🎟️ สลากที่สั่งซื้อสำเร็จ</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+        <h3 style="color: #d9534f; margin: 0;">🎟️ สลากของคุณ</h3>
+        <span id="myTicketCountBadge" style="background: #d9534f; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">0 ใบ</span>
+      </div>
       <div id="myTicketsList"></div>
       <button type="button" class="btn-back" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
     </div>
@@ -265,7 +274,6 @@
     alert("คัดลอกลิงก์ชวนเพื่อนเรียบร้อยแล้ว!\nส่งลิงก์นี้ให้เพื่อนกดเข้าแผงหวยได้เลยครับ 💸");
   }
 
-  // 🛡️ ฟังก์ชันกลางยืนยันสิทธิ์การใช้งาน
   function checkAuthStatus() {
     if (myLineId) return true;
     const cached = localStorage.getItem('chokdee_lineId');
@@ -277,7 +285,23 @@
     return false;
   }
 
+  function hideAllSections() {
+    document.getElementById("lottoSection").style.display = "none";
+    document.getElementById("depositActionView").style.display = "none";
+    document.getElementById("withdrawActionView").style.display = "none";
+    document.getElementById("profileSection").style.display = "none";
+    document.getElementById("myTicketsSection").style.display = "none";
+  }
+
+  function timeoutPromise(ms) {
+    return new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms));
+  }
+
   async function startApp() {
+    const statusElem = document.getElementById("status");
+    document.getElementById("searchAreaTop").style.display = "block";
+    doSearch(); 
+
     const cachedLineId = localStorage.getItem('chokdee_lineId');
     if (cachedLineId) {
       myLineId = cachedLineId;
@@ -286,45 +310,33 @@
       document.getElementById("menuLogout").style.display = "block";
       document.getElementById("menuProfile").style.display = "block";
       document.getElementById("menuTickets").style.display = "block";
-      document.getElementById("status").innerText = "⚡ กำลังโหลดแผงหวย...";
-      loadUserDashboard();
+      
+      loadUserDashboard().catch(e => console.log("Dashboard fetch soft fail", e));
       initLiffInBackground();
     } else {
       await initLiffAndWait();
     }
-  }
 
-  function showExternalBrowserButton() {
-    document.body.innerHTML = `
-      <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#f4f6f9; text-align:center; padding: 20px;">
-        <h2 style="color:#d9534f; margin-bottom: 10px;">🎫 โชคดีล็อตเตอรี่</h2>
-        <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 100%; max-width: 320px;">
-          <p style="color:#666; margin-bottom: 25px; font-size: 15px; line-height:1.6;">
-            เพื่อความรวดเร็วในการโหลดแผงหวย<br>และใช้งานระบบจดจำการล็อกอิน<br><br><b>กรุณากดปุ่มด้านล่างเพื่อเปิดเบราว์เซอร์ครับ</b>
-          </p>
-          <button onclick="liff.openWindow({ url: window.location.href, external: true }); setTimeout(()=>liff.closeWindow(), 500);"
-                  style="background:#28a745; color:#fff; border:none; padding:15px; width: 100%; font-size:16px; border-radius:8px; font-weight:bold; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดแผงหวย (คลิกที่นี่)
-          </button>
-        </div>
-      </div>
-    `;
+    if (statusElem) statusElem.style.display = "none";
   }
 
   async function initLiffInBackground() {
     try {
-      await liff.init({ liffId: LIFF_ID });
-      if (liff.isInClient()) { showExternalBrowserButton(); }
-    } catch (e) { console.log("LIFF Init Error", e); }
+      if (typeof liff !== "undefined") {
+        await Promise.race([liff.init({ liffId: LIFF_ID }), timeoutPromise(2000)]);
+      }
+    } catch (e) { console.warn("Background LIFF Init Timeout/Skipped"); }
   }
 
   async function initLiffAndWait() {
+    const statusElem = document.getElementById("status");
     try {
-      await liff.init({ liffId: LIFF_ID });
-      if (liff.isInClient()) {
-        showExternalBrowserButton();
-        return;
-      }
+      if (typeof liff === "undefined") throw new Error("SDK Not Loaded");
+
+      await Promise.race([
+        liff.init({ liffId: LIFF_ID }),
+        timeoutPromise(2000)
+      ]);
 
       const lineOaBtn = document.getElementById("lineOaBtn");
       if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
@@ -333,10 +345,11 @@
       const refCode   = urlParams.get('ref');
       if (refCode) {
         const refInput = document.getElementById("referrerCode");
-        refInput.value = refCode;
-        refInput.readOnly = true;
-        refInput.style.backgroundColor = "#e9ecef";
-        refInput.style.color = "#495057";
+        if (refInput) {
+          refInput.value = refCode;
+          refInput.readOnly = true;
+          refInput.style.backgroundColor = "#e9ecef";
+        }
       }
 
       if (liff.isLoggedIn()) {
@@ -349,20 +362,24 @@
         document.getElementById("menuLogout").style.display = "block";
         document.getElementById("menuProfile").style.display = "block";
         document.getElementById("menuTickets").style.display = "block";
-        document.getElementById("status").innerText = "⏳ กำลังตรวจสอบข้อมูลสมาชิก...";
-
-        await loadUserDashboard();
+        
+        loadUserDashboard();
       } else {
+        if (liff.isInClient()) {
+          liff.login();
+          return;
+        }
         document.getElementById("menuLogin").style.display = "block";
         document.getElementById("menuLogout").style.display = "none";
         document.getElementById("menuProfile").style.display = "none";
         document.getElementById("menuTickets").style.display = "none";
         document.getElementById("walletSummaryCard").style.display = "none";
-        document.getElementById("searchAreaTop").style.display  = "block";
-        document.getElementById("status").innerText = "🔑 กรุณาลงชื่อเข้าใช้งานผ่านเมนูฟันเฟือง";
-        await doSearch();
       }
-    } catch (e) { document.getElementById("status").innerText = "❌ เชื่อมต่อระบบล้มเหลว"; }
+    } catch (e) { 
+      console.warn("LIFF init timed out or failed:", e);
+    } finally {
+      if (statusElem) statusElem.style.display = "none";
+    }
   }
 
   function liffLogin() { liff.login(); }
@@ -370,7 +387,7 @@
     if (confirm("คุณต้องการลงชื่อออกจากระบบแผงหวยใช่หรือไม่?")) {
       localStorage.removeItem('chokdee_lineId');
       myLineId = "";
-      if (liff.isLoggedIn()) liff.logout();
+      try { if (liff.isLoggedIn()) liff.logout(); } catch(e){}
       location.reload();
     }
   }
@@ -381,7 +398,7 @@
       const result = await response.json();
 
       if (result.status === "not_found") {
-        document.getElementById("lottoSection").style.display = "none";
+        hideAllSections();
         document.getElementById("profileSection").style.display = "block";
       } else {
         let mBal = parseFloat(result.data.balance) || 0;
@@ -406,12 +423,9 @@
         document.getElementById("walletSummaryCard").style.display = "block";
         document.getElementById("searchAreaTop").style.display = "block";
 
-        const hasPendingDeposit = await checkActiveDeposit();
-        if (!hasPendingDeposit) {
-          await doSearch();
-        }
+        await checkActiveDeposit();
       }
-    } catch (err) { document.getElementById("status").innerText = "❌ ดึงประวัติสมาชิกล้มเหลว"; }
+    } catch (err) { console.error("Profile load err", err); }
   }
 
   async function checkActiveDeposit() {
@@ -435,23 +449,53 @@
     } catch (e) { return false; }
   }
 
-  function openProfileSection() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("profileSection").style.display = "block"; }
-  function closeProfileSection() { document.getElementById("profileSection").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; document.getElementById("myDropdown").style.display = "none"; }
-  function openDepositView() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("depositActionView").style.display = "block"; }
-  function openWithdrawView() { document.getElementById("lottoSection").style.display = "none"; document.getElementById("withdrawActionView").style.display = "block"; }
-  function closeTxView() { document.getElementById("depositActionView").style.display = "none"; document.getElementById("withdrawActionView").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; }
+  // 📌 แยกการเปิด-ปิดแต่ละส่วนอย่างเด็ดขาด
+  function openProfileSection() { 
+    hideAllSections(); 
+    document.getElementById("profileSection").style.display = "block"; 
+    document.getElementById("myDropdown").style.display = "none";
+  }
+  function closeProfileSection() { 
+    hideAllSections(); 
+    document.getElementById("lottoSection").style.display = "block"; 
+  }
+
+  function openDepositView() { 
+    hideAllSections(); 
+    document.getElementById("depositActionView").style.display = "block"; 
+  }
+  function openWithdrawView() { 
+    hideAllSections(); 
+    document.getElementById("withdrawActionView").style.display = "block"; 
+  }
+  function closeTxView() { 
+    hideAllSections(); 
+    document.getElementById("lottoSection").style.display = "block"; 
+  }
 
   async function openMyTicketsSection() {
-    document.getElementById("lottoSection").style.display = "none";
+    if (!checkAuthStatus()) {
+      alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนดูสลากของคุณครับ");
+      liff.login();
+      return;
+    }
+    hideAllSections();
     document.getElementById("myTicketsSection").style.display = "block";
+    document.getElementById("myDropdown").style.display = "none";
     document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; padding: 20px;'>⏳ กำลังโหลดสลากของคุณ...</p>";
+    
     try {
-      const res = await fetch(`${BACKEND_URL}?action=getMyTickets&lineUserId=${myLineId}`);
+      const res = await fetch(`${BACKEND_URL}?action=getMyTickets&lineUserId=${myLineId}&_t=${Date.now()}`);
       const result = await res.json();
-      renderMyTickets(result.tickets);
-    } catch (e) { document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; color:red;'>❌ โหลดข้อมูลไม่สำเร็จ</p>"; }
+      renderMyTickets(result.tickets || []);
+    } catch (e) { 
+      document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; color:red;'>❌ โหลดข้อมูลสลากไม่สำเร็จ</p>"; 
+    }
   }
-  function closeMyTicketsSection() { document.getElementById("myTicketsSection").style.display = "none"; document.getElementById("lottoSection").style.display = "block"; document.getElementById("myDropdown").style.display = "none"; }
+  function closeMyTicketsSection() { 
+    hideAllSections(); 
+    document.getElementById("lottoSection").style.display = "block"; 
+  }
 
   async function submitDepositTx() {
     if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการนำฝากครับ"); liff.login(); return; }
@@ -479,7 +523,9 @@
     _isSearching = true;
     try {
       const ticketsArea = document.getElementById("ticketsArea");
-      ticketsArea.innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
+      if (ticketsArea.children.length === 0) {
+        ticketsArea.innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
+      }
       const q = document.getElementById("searchQ").value;
       const res = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(q)}&lineUserId=${myLineId || ''}&_t=${Date.now()}`);
       const responseData = await res.json();
@@ -516,7 +562,7 @@
         let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId).length;
         let availableCount = group.allSets.length - selectedInCartCount;
         let isButtonDisabled = availableCount <= 0 ? "disabled" : "";
-        let buttonText = availableCount <= 0 ? "หมดแล้ว" : "หยิบใส่ตะกร้า";
+        let buttonText = availableCount <= 0 ? "อยู่ในตะกร้า" : "หยิบใส่ตะกร้า";
         let qty = group.allSets.length;
         let millions = qty * 6;
         let coverImg = group.imageUrls[0] || 'https://via.placeholder.com/150?text=No+Image';
@@ -622,6 +668,7 @@
       if (result.status !== "success") {
         alert("กรุณาเลือกสินค้าอื่น สินค้าที่คุณเลือก มีลูกค้าท่านอื่นเลือกไปแล้ว");
         btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> มีคนหยิบแล้ว';
+        btn.disabled = true;
         return; 
       }
     } catch (e) {
@@ -820,7 +867,16 @@
     }
   }
 
+  // 🎟️ ฟังก์ชันเรนเดอร์เฉพาะรายการสลากที่สั่งซื้อแล้ว (ไม่รวมข้อมูลส่วนตัว)
   function renderMyTickets(tickets) {
+    const countBadge = document.getElementById("myTicketCountBadge");
+    if (countBadge) countBadge.innerText = tickets.length + " ใบ";
+
+    if (!tickets || tickets.length === 0) {
+      document.getElementById("myTicketsList").innerHTML = "<div style='text-align:center; padding: 30px; color:#999;'><i class="fa-solid fa-ticket-simple" style="font-size: 40px; margin-bottom: 10px;"></i><br>คุณยังไม่มีประวัติซื้อสลากครับ</div>";
+      return;
+    }
+
     let html = "";
     let groupedMyTickets = {};
     tickets.forEach(t => {
@@ -878,8 +934,19 @@
       html += `<div class="my-ticket-card">${imageAreaHtml}<div class="my-ticket-details"><div class="my-ticket-num">${group.ticketId}</div><div>งวด: ${group.drawDate} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${group.sets[0]}`}</div><div style="margin: 6px 0;"><span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid ${badgeIcon}"></i> ${group.shippingType}</span></div><div style="font-weight:bold;color:${colorStyle};">ผล: ${group.result}</div></div></div>`;
     });
     
-    document.getElementById("myTicketsList").innerHTML = html || "<p style='text-align:center;'>ไม่มีประวัติสลากครับ</p>";
+    document.getElementById("myTicketsList").innerHTML = html;
   }
+
+  // เคลียร์สลากค้างหากผู้ใช้ปิดแท็บหรือสลับแอป
+  window.addEventListener('beforeunload', function() {
+    if (cart.length > 0) {
+      let ticketKeysToUnlock = cart.map(item => item.uniqueKey);
+      let payload = JSON.stringify({ action: "unlockTicket", token: SECRET_TOKEN, tickets: ticketKeysToUnlock });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(BACKEND_URL, payload);
+      }
+    }
+  });
 
   window.onload = startApp;
 </script>
