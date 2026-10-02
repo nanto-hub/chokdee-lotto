@@ -658,7 +658,7 @@
     }
   }
 
-  async function clickSelectTicket(ticketId) {
+async function clickSelectTicket(ticketId) {
     if (!checkAuthStatus()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานแผงหวยก่อนเลือกสลากลงตะกร้าครับ");
       liff.login();
@@ -697,7 +697,21 @@
           tickets: ticketKeysToLock 
         })
       });
-      const result = await response.json();
+
+      // 🔍 ดักเช็คข้อความตอบกลับจากหลังบ้านว่าเป็น JSON หรือไม่
+      const responseText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (jsonErr) {
+        // ถ้าแปลงเป็น JSONไม่ได้ แสดงว่าหลังบ้านส่ง HTML Error กลับมา
+        console.error("Backend Error Raw Output:", responseText);
+        alert("❌ หลังบ้านส่งข้อผิดพลาดกลับมา:\n" + responseText.substring(0, 150));
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        btn.style.backgroundColor = originalBg;
+        return;
+      }
 
       if (result.status !== "success") {
         alert("กรุณาเลือกสินค้าอื่น สินค้าที่คุณเลือก มีลูกค้าท่านอื่นเลือกไปแล้ว");
@@ -706,7 +720,9 @@
         return; 
       }
     } catch (e) {
-      alert("เชื่อมต่อขัดข้อง ไม่สามารถจองสลากได้ กรุณาลองใหม่");
+      // 🔍 แสดงข้อผิดพลาดทางเทคนิคที่แท้จริง
+      console.error("Fetch Exception:", e);
+      alert("❌ เกิดข้อผิดพลาดการเชื่อมต่อ: " + e.message);
       btn.innerHTML = originalText;
       btn.disabled = false;
       btn.style.backgroundColor = originalBg;
