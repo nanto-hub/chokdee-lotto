@@ -216,7 +216,6 @@
     <div id="profileSection" class="profile-section">
       <h3 style="color: #d9534f; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px;">👤 ข้อมูลส่วนตัว</h3>
       <div id="profileForm">
-        <input type="hidden" id="lineUserId">
         <div class="form-group"><label>ชื่อ-นามสกุล (สำหรับจัดส่ง/ขึ้นเงิน)</label><input type="text" id="fullName" required></div>
         <div class="form-group"><label>เบอร์โทรศัพท์</label><input type="tel" id="phone" required></div>
         <div class="form-group" style="background:#fff3cd; padding:10px; border-radius:6px; border:1px solid #ffeeba;">
@@ -250,7 +249,6 @@
 <script>
   const LINE_OA_CHAT_URL = "https://line.me/R/ti/p/@908iwiki"; 
 
-  let myLineId = "";
   let cart = [];
   let rawTicketsData = [];
   let countdownInterval;
@@ -260,6 +258,15 @@
   let cartExpirationTime = null;
 
   let _searchDebounceTimer = null;
+
+  function ticketGroupButtonId(ticketId, drawDate) {
+    return "btn-" + ticketId + "-" + encodeURIComponent(drawDate);
+  }
+
+  document.getElementById("ticketsArea").addEventListener("click", event => {
+    const button = event.target.closest(".btn-buy");
+    if (button) clickSelectTicket(button.dataset.ticketId, button.dataset.drawDate);
+  });
 
   function escapeHtml(str) {
     if (!str) return '';
@@ -285,14 +292,7 @@
   }
 
   function checkAuthStatus() {
-    if (myLineId) return true;
-    const cached = localStorage.getItem('chokdee_lineId');
-    if (cached) {
-      myLineId = cached;
-      document.getElementById("lineUserId").value = myLineId;
-      return true;
-    }
-    return false;
+    return typeof liff !== "undefined" && liff.isLoggedIn() && Boolean(liff.getIDToken());
   }
 
   function hideAllSections() {
@@ -303,39 +303,26 @@
     document.getElementById("myTicketsSection").style.display = "none";
   }
 
-  function timeoutPromise(ms) {
-    return new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms));
+  async function apiPost(action, fields = {}) {
+    if (typeof liff === "undefined" || !liff.isLoggedIn()) throw new Error("กรุณาเข้าสู่ระบบ LINE");
+    const idToken = liff.getIDToken();
+    if (!idToken) throw new Error("ไม่พบ LINE ID token");
+    const response = await fetch(BACKEND_URL, {
+      method: "POST",
+      body: JSON.stringify({ action, idToken, ...fields })
+    });
+    return response.json();
   }
 
   async function startApp() {
     const statusElem = document.getElementById("status");
+    const lineOaBtn = document.getElementById("lineOaBtn");
+    if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
     document.getElementById("searchAreaTop").style.display = "block";
     doSearch(); 
-
-    const cachedLineId = localStorage.getItem('chokdee_lineId');
-    if (cachedLineId) {
-      myLineId = cachedLineId;
-      document.getElementById("lineUserId").value = myLineId;
-      document.getElementById("menuLogin").style.display = "none";
-      document.getElementById("menuLogout").style.display = "block";
-      document.getElementById("menuProfile").style.display = "block";
-      document.getElementById("menuTickets").style.display = "block";
-      
-      loadUserDashboard().catch(e => console.log("Dashboard fetch soft fail", e));
-      initLiffInBackground();
-    } else {
-      await initLiffAndWait();
-    }
+    await initLiffAndWait();
 
     if (statusElem) statusElem.style.display = "none";
-  }
-
-  async function initLiffInBackground() {
-    try {
-      if (typeof liff !== "undefined") {
-        await Promise.race([liff.init({ liffId: LIFF_ID }), timeoutPromise(2000)]);
-      }
-    } catch (e) { console.warn("Background LIFF Init Timeout/Skipped"); }
   }
 
   async function initLiffAndWait() {
@@ -343,10 +330,7 @@
     try {
       if (typeof liff === "undefined") throw new Error("SDK Not Loaded");
 
-      await Promise.race([
-        liff.init({ liffId: LIFF_ID }),
-        timeoutPromise(2000)
-      ]);
+      await liff.init({ liffId: LIFF_ID });
 
       const lineOaBtn = document.getElementById("lineOaBtn");
       if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
@@ -363,11 +347,6 @@
       }
 
       if (liff.isLoggedIn()) {
-        const profile = await liff.getProfile();
-        myLineId = profile.userId;
-        localStorage.setItem('chokdee_lineId', myLineId);
-
-        document.getElementById("lineUserId").value = myLineId;
         document.getElementById("menuLogin").style.display = "none";
         document.getElementById("menuLogout").style.display = "block";
         document.getElementById("menuProfile").style.display = "block";
@@ -395,8 +374,6 @@
   function liffLogin() { liff.login(); }
   function liffLogout() {
     if (confirm("คุณต้องการลงชื่อออกจากระบบแผงหวยใช่หรือไม่?")) {
-      localStorage.removeItem('chokdee_lineId');
-      myLineId = "";
       try { if (liff.isLoggedIn()) liff.logout(); } catch(e){}
       location.reload();
     }
@@ -404,8 +381,7 @@
 
   async function loadUserDashboard() {
     try {
-      const response = await fetch(`${BACKEND_URL}?action=getProfile&lineUserId=${myLineId}&_t=${Date.now()}`);
-      const result = await response.json();
+      const result = await apiPost("getProfile");
 
       if (result.status === "not_found") {
         hideAllSections();
@@ -440,8 +416,7 @@
 
   async function checkActiveDeposit() {
     try {
-      const res = await fetch(`${BACKEND_URL}?action=checkPendingDeposit&lineUserId=${myLineId}&_t=${Date.now()}`);
-      const result = await res.json();
+      const result = await apiPost("checkPendingDeposit");
       if (result.status === "pending") {
         const timeLeft = Math.floor((result.expireTime - Date.now()) / 1000);
         if (timeLeft > 0) {
@@ -494,8 +469,7 @@
     document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; padding: 20px;'>⏳ กำลังโหลดสลากของคุณ...</p>";
     
     try {
-      const res = await fetch(`${BACKEND_URL}?action=getMyTickets&lineUserId=${myLineId}&_t=${Date.now()}`);
-      const result = await res.json();
+      const result = await apiPost("getMyTickets");
       renderMyTickets(result.tickets || []);
     } catch (e) { 
       document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; color:red;'>❌ โหลดข้อมูลสลากไม่สำเร็จ</p>"; 
@@ -517,11 +491,7 @@
     btn.innerText = "⏳ กำลังสร้างใบนำฝาก...";
 
     try {
-      const res = await fetch(BACKEND_URL, { 
-        method: "POST", 
-        body: JSON.stringify({ action: "requestDeposit", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) 
-      });
-      const result = await res.json();
+      const result = await apiPost("requestDeposit", { amount });
       if (result.status === "success") location.reload();
       else alert(result.message || "เกิดข้อผิดพลาด");
     } catch(e) {
@@ -543,13 +513,9 @@
     btn.innerText = "⏳ กำลังส่งคำขอ...";
 
     try {
-      const res = await fetch(BACKEND_URL, { 
-        method: "POST", 
-        body: JSON.stringify({ action: "requestWithdrawal", token: SECRET_TOKEN, lineUserId: myLineId, amount: amount }) 
-      });
-      const result = await res.json();
+      const result = await apiPost("requestWithdrawal", { amount });
       alert(result.message);
-      location.reload();
+      if (result.status === "success") location.reload();
     } catch(e) {
       alert("เชื่อมต่อขัดข้อง กรุณาลองใหม่อีกครั้ง");
     } finally {
@@ -568,7 +534,7 @@
         ticketsArea.innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
       }
       const q = document.getElementById("searchQ").value;
-      const res = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(q)}&lineUserId=${myLineId || ''}&_t=${Date.now()}`);
+      const res = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(q)}&_t=${Date.now()}`);
       const responseData = await res.json();
 
       storeConfig = responseData.config;
@@ -600,7 +566,7 @@
       document.getElementById("shippingType").innerHTML = shippingOptionsHtml;
 
       let html = Object.values(groupedTickets).map(group => {
-        let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId).length;
+        let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId && c.drawDate === group.drawDate).length;
         let availableCount = group.allSets.length - selectedInCartCount;
         let isButtonDisabled = availableCount <= 0 ? "disabled" : "";
         let buttonText = availableCount <= 0 ? "อยู่ในตะกร้า" : "หยิบใส่ตะกร้า";
@@ -615,7 +581,7 @@
               <div class="ticket-left-info">
                 ${qty > 1 ? 'เลขชุด<br>' : ''}<span>${qty}</span> ใบ<br><span>${millions}</span> ล้าน
               </div>
-              <button class="btn-buy" id="btn-${escapeHtml(group.ticketId)}" data-id="${escapeHtml(group.ticketId)}" ${isButtonDisabled} onclick="clickSelectTicket('${escapeHtml(group.ticketId)}')">
+              <button class="btn-buy" id="${escapeHtml(ticketGroupButtonId(group.ticketId, group.drawDate))}" data-ticket-id="${escapeHtml(group.ticketId)}" data-draw-date="${escapeHtml(group.drawDate)}" ${isButtonDisabled}>
                 <i class="fa-solid fa-basket-shopping"></i> ${buttonText}
               </button>
             </div>
@@ -654,10 +620,7 @@
   async function clearCartDueToTimeout() {
     if (cart.length > 0) {
       let ticketKeysToUnlock = cart.map(item => item.uniqueKey);
-      fetch(BACKEND_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "unlockTicket", token: SECRET_TOKEN, tickets: ticketKeysToUnlock })
-      }).catch(e=>{});
+      apiPost("unlockTicket", { tickets: ticketKeysToUnlock }).catch(e=>{});
 
       cart = [];
       updateCartUI();
@@ -667,17 +630,17 @@
   }
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS และแก้ปัญหา "Failed to fetch"
-  async function clickSelectTicket(ticketId) {
+  async function clickSelectTicket(ticketId, drawDate) {
     if (!checkAuthStatus()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานแผงหวยก่อนเลือกสลากลงตะกร้าครับ");
       liff.login();
       return;
     }
 
-    let sameNumTickets = rawTicketsData.filter(t => t.ticketId === ticketId);
+    let sameNumTickets = rawTicketsData.filter(t => t.ticketId === ticketId && t.drawDate === drawDate);
     let ticketKeysToLock = [];
     sameNumTickets.forEach(target => {
-      let uniqueKey = target.ticketId + "_" + target.setNo;
+      let uniqueKey = target.ticketId + "_" + target.drawDate + "_" + target.setNo;
       if (!cart.some(c => c.uniqueKey === uniqueKey)) {
         ticketKeysToLock.push(uniqueKey);
       }
@@ -688,7 +651,7 @@
       return;
     }
 
-    let btn = document.getElementById("btn-" + ticketId);
+    let btn = document.getElementById(ticketGroupButtonId(ticketId, drawDate));
     let originalText = btn ? btn.innerHTML : "";
     let originalBg = btn ? btn.style.backgroundColor : "";
     
@@ -699,16 +662,7 @@
     }
 
     try {
-      const response = await fetch(BACKEND_URL, {
-        method: "POST",
-        body: JSON.stringify({ 
-          action: "lockTicket", 
-          token: SECRET_TOKEN, 
-          lineUserId: myLineId, 
-          tickets: ticketKeysToLock 
-        })
-      });
-      const result = await response.json();
+      const result = await apiPost("lockTicket", { tickets: ticketKeysToLock });
 
       if (result.status !== "success") {
         alert("กรุณาเลือกสินค้าอื่น สินค้าที่คุณเลือก มีลูกค้าท่านอื่นเลือกไปแล้ว");
@@ -730,9 +684,9 @@
     }
 
     sameNumTickets.forEach(target => {
-      let uniqueKey = target.ticketId + "_" + target.setNo;
+      let uniqueKey = target.ticketId + "_" + target.drawDate + "_" + target.setNo;
       if (!cart.some(c => c.uniqueKey === uniqueKey)) {
-        cart.push({ ticketId: target.ticketId, setNo: target.setNo, uniqueKey: uniqueKey });
+        cart.push({ ticketId: target.ticketId, drawDate: target.drawDate, setNo: target.setNo, uniqueKey: uniqueKey });
       }
     });
 
@@ -758,7 +712,7 @@
 
     summaryArea.style.display = "block";
     container.innerHTML = cart.map(item =>
-      `<span class="cart-tag">${escapeHtml(item.ticketId)} (ชุด ${escapeHtml(item.setNo)}) <i class="fa-solid fa-circle-xmark" onclick="removeFromCart('${escapeHtml(item.uniqueKey)}')"></i></span>`
+      `<span class="cart-tag">${escapeHtml(item.ticketId)} (งวด ${escapeHtml(item.drawDate)}, ชุด ${escapeHtml(item.setNo)}) <i class="fa-solid fa-circle-xmark" onclick="removeFromCart('${escapeHtml(item.uniqueKey)}')"></i></span>`
     ).join('');
     reCalculatePrice();
   }
@@ -770,13 +724,10 @@
     updateCartUI();
 
     if (removedItem) {
-      fetch(BACKEND_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "unlockTicket", token: SECRET_TOKEN, tickets: [uniqueKey] })
-      }).catch(e=>{});
+      apiPost("unlockTicket", { tickets: [uniqueKey] }).catch(e=>{});
 
-      let btn = document.getElementById("btn-" + removedItem.ticketId);
-      if (btn && !cart.some(c => c.ticketId === removedItem.ticketId)) {
+      let btn = document.getElementById(ticketGroupButtonId(removedItem.ticketId, removedItem.drawDate));
+      if (btn && !cart.some(c => c.ticketId === removedItem.ticketId && c.drawDate === removedItem.drawDate)) {
         btn.disabled  = false;
         btn.innerHTML = '<i class="fa-solid fa-basket-shopping"></i> หยิบใส่ตะกร้า';
         btn.style.backgroundColor = "#d9534f";
@@ -819,11 +770,7 @@
       btnOrder.disabled = true;
 
       try {
-        const response = await fetch(BACKEND_URL, {
-          method: "POST",
-          body: JSON.stringify({ action: "reserveTickets", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketKeys } })
-        });
-        const result = await response.json();
+        const result = await apiPost("reserveTickets", { data: { tickets: ticketKeys } });
 
         if (result.status === "success") {
           alert("⚠️ ยอดเงินไม่พอครับ ระบบได้ล็อกสลากชุดนี้ไว้ให้ 5 นาที กรุณาทำรายการเติมเงินครับ");
@@ -845,11 +792,7 @@
     document.querySelectorAll('.btn-buy').forEach(b => b.disabled = true);
 
     try {
-      const response = await fetch(BACKEND_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "createOrder", token: SECRET_TOKEN, data: { lineUserId: myLineId, tickets: ticketKeys, shippingType: type } })
-      });
-      const result = await response.json();
+      const result = await apiPost("createOrder", { data: { tickets: ticketKeys, shippingType: type } });
       alert(result.message);
       location.reload();
     } catch (e) {
@@ -873,7 +816,6 @@
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function saveProfileData() {
     const data = {
-      lineUserId:      document.getElementById("lineUserId").value,
       fullName:        document.getElementById("fullName").value,
       phone:           document.getElementById("phone").value,
       referrerCode:    document.getElementById("referrerCode").value,
@@ -893,11 +835,7 @@
     btn.innerText = "⏳ กำลังบันทึก...";
 
     try {
-      const res = await fetch(BACKEND_URL, { 
-        method: "POST", 
-        body: JSON.stringify({ action: "saveProfile", token: SECRET_TOKEN, data: data }) 
-      });
-      const result = await res.json();
+      const result = await apiPost("saveProfile", { data });
       alert(result.message);
       location.reload();
     } catch(e) {
@@ -1009,9 +947,9 @@
   }
 
   window.addEventListener('beforeunload', function() {
-    if (cart.length > 0) {
+    if (cart.length > 0 && typeof liff !== "undefined" && liff.isLoggedIn()) {
       let ticketKeysToUnlock = cart.map(item => item.uniqueKey);
-      let payload = JSON.stringify({ action: "unlockTicket", token: SECRET_TOKEN, tickets: ticketKeysToUnlock });
+      let payload = JSON.stringify({ action: "unlockTicket", idToken: liff.getIDToken(), tickets: ticketKeysToUnlock });
       if (navigator.sendBeacon) {
         navigator.sendBeacon(BACKEND_URL, payload);
       }
