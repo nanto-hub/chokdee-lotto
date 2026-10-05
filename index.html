@@ -85,6 +85,14 @@
     .my-ticket-card img { width: 100%; max-width: 300px; height: auto; border-radius: 8px; border: 1px solid #eee; object-fit: contain; }
     .my-ticket-details { width: 100%; text-align: center; }
     .my-ticket-num { font-size: 26px; font-weight: bold; color: #d9534f; margin-bottom: 5px; letter-spacing: 2px; }
+    .btn-claim-prize { width: 100%; padding: 10px; margin-top: 10px; background: #28a745; border: none; border-radius: 6px; color: white; font-size: 15px; font-weight: bold; cursor: pointer; }
+    .prize-claim-status { margin-top: 8px; color: #6c757d; font-weight: bold; font-size: 13px; }
+    .claim-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,0.55); }
+    .claim-modal[hidden] { display: none; }
+    .claim-modal-card { width: 100%; max-width: 360px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.25); text-align: center; }
+    .claim-modal-card h3 { margin: 0 0 8px; color: #d9534f; }
+    .claim-modal-card p { color: #555; font-size: 14px; }
+    .btn-claim-method { width: 100%; padding: 11px; margin-top: 8px; border: none; border-radius: 6px; color: white; font-size: 14px; font-weight: bold; cursor: pointer; }
 
     .watermark-wrapper { position: relative; width: 100%; max-width: 300px; margin: 0 auto; border-radius: 8px; overflow: hidden; }
     .watermark-wrapper img { width: 100%; height: auto; border: 1px solid #eee; object-fit: contain; display: block; }
@@ -242,6 +250,16 @@
       </div>
       <div id="myTicketsList"></div>
       <button type="button" class="btn-back" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
+      <div id="prizeClaimModal" class="claim-modal" role="dialog" aria-modal="true" aria-labelledby="prizeClaimTitle" hidden>
+        <div class="claim-modal-card">
+          <h3 id="prizeClaimTitle">🎉 รับเงินรางวัล</h3>
+          <p id="prizeClaimAmountText"></p>
+          <p id="prizeClaimBankText"></p>
+          <button type="button" class="btn-claim-method" style="background:#28a745;" onclick="submitPrizeClaim('wallet')">💰 รับเข้าวอเลททันที</button>
+          <button type="button" class="btn-claim-method" style="background:#0275d8;" onclick="submitPrizeClaim('bank')">🏦 โอนเข้าบัญชีที่ลงทะเบียน</button>
+          <button type="button" class="btn-back" onclick="closePrizeClaimModal()">ยกเลิก</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -256,6 +274,7 @@
   
   let cartExpireTimerInterval = null;
   let cartExpirationTime = null;
+  let pendingPrizeClaimKeys = [];
 
   let _searchDebounceTimer = null;
 
@@ -266,6 +285,17 @@
   document.getElementById("ticketsArea").addEventListener("click", event => {
     const button = event.target.closest(".btn-buy");
     if (button) clickSelectTicket(button.dataset.ticketId, button.dataset.drawDate);
+  });
+
+  document.getElementById("myTicketsList").addEventListener("click", event => {
+    const button = event.target.closest(".btn-claim-prize");
+    if (!button) return;
+    try {
+      openPrizeClaimModal(JSON.parse(button.dataset.ticketKeys));
+    } catch (error) {
+      console.error("Invalid prize claim ticket data:", error);
+      alert("เปิดรายการขึ้นเงินไม่สำเร็จ กรุณาโหลดรายการสลากใหม่");
+    }
   });
 
   function escapeHtml(str) {
@@ -414,6 +444,11 @@
         document.getElementById("addrZipcode").value     = result.data.addrZipcode || "";
         document.getElementById("bankName").value        = result.data.bankName || "";
         document.getElementById("bankAccount").value     = result.data.bankAccount || "";
+        const registeredBankAccount = String(result.data.bankAccount || "").replace(/^'/, "").trim();
+        const registeredBankName = String(result.data.bankName || "").replace(/^'/, "").trim();
+        document.getElementById("prizeClaimBankText").innerText = registeredBankAccount
+          ? `บัญชีที่ลงทะเบียน: ${registeredBankName} ••••${registeredBankAccount.slice(-4)}`
+          : "ยังไม่มีบัญชีธนาคารที่ลงทะเบียน";
         
         if (result.data.myReferralCode) {
           document.getElementById("myShareLink").value = `https://liff.line.me/${LIFF_ID}?ref=${result.data.myReferralCode}`;
@@ -902,10 +937,11 @@
     tickets.forEach(t => {
       let key = t.ticketId + "_" + t.drawDate;
       if (!groupedMyTickets[key]) {
-        groupedMyTickets[key] = { ticketId: t.ticketId, drawDate: t.drawDate, result: t.result, shippingType: t.shippingType, sets: [], imageUrls: [] };
+        groupedMyTickets[key] = { ticketId: t.ticketId, drawDate: t.drawDate, result: t.result, shippingType: t.shippingType, sets: [], imageUrls: [], ticketRows: [] };
       }
       groupedMyTickets[key].sets.push(t.setNo);
       groupedMyTickets[key].imageUrls.push(t.thumbUrl);
+      groupedMyTickets[key].ticketRows.push(t);
     });
 
     Object.values(groupedMyTickets).forEach(group => {
@@ -914,6 +950,27 @@
       let colorStyle   = group.result.includes('ถูก') ? '#28a745' : (group.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
       let qty          = group.sets.length;
       let imageAreaHtml = "";
+      const claimableTickets = group.ticketRows.filter(ticket =>
+        !ticket.prizeClaimStatus && ticket.prizeAmount !== null &&
+        ticket.prizeAmount !== "" && Number.isFinite(Number(ticket.prizeAmount)) &&
+        Number(ticket.prizeAmount) > 0
+      );
+      const pendingClaims = group.ticketRows.filter(ticket => ticket.prizeClaimStatus);
+      const claimableAmount = claimableTickets.reduce((sum, ticket) => sum + Number(ticket.prizeAmount), 0);
+      let prizeClaimHtml = "";
+      if (claimableTickets.length > 0) {
+        const ticketKeys = claimableTickets.map(ticket => ticket.ticketKey);
+        prizeClaimHtml = `<button type="button" class="btn-claim-prize" data-ticket-keys="${escapeHtml(JSON.stringify(ticketKeys))}" data-amount="${claimableAmount.toFixed(2)}">🎉 ขึ้นเงินรางวัล ${claimableAmount.toFixed(2)} บาท</button>`;
+        if (pendingClaims.length > 0) {
+          const statuses = [...new Set(pendingClaims.map(ticket => ticket.prizeClaimStatus))];
+          prizeClaimHtml += `<div class="prize-claim-status">${escapeHtml(statuses.join(" / "))}</div>`;
+        }
+      } else if (pendingClaims.length > 0) {
+        const statuses = [...new Set(pendingClaims.map(ticket => ticket.prizeClaimStatus))];
+        prizeClaimHtml = `<div class="prize-claim-status">${escapeHtml(statuses.join(" / "))}</div>`;
+      } else if (group.result.includes("🎉 ถูก")) {
+        prizeClaimHtml = `<div class="prize-claim-status">ยังไม่มีจำนวนเงินรางวัลของงวดนี้ กรุณาติดต่อร้าน</div>`;
+      }
       
       if (qty >= 2) {
         imageAreaHtml = `
@@ -951,10 +1008,56 @@
           </div>`;
       }
 
-      html += `<div class="my-ticket-card">${imageAreaHtml}<div class="my-ticket-details"><div class="my-ticket-num">${escapeHtml(group.ticketId)}</div><div>งวด: ${escapeHtml(group.drawDate)} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${escapeHtml(group.sets[0])}`}</div><div style="margin: 6px 0;"><span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid ${badgeIcon}"></i> ${escapeHtml(group.shippingType)}</span></div><div style="font-weight:bold;color:${colorStyle};">ผล: ${escapeHtml(group.result)}</div></div></div>`;
+      html += `<div class="my-ticket-card">${imageAreaHtml}<div class="my-ticket-details"><div class="my-ticket-num">${escapeHtml(group.ticketId)}</div><div>งวด: ${escapeHtml(group.drawDate)} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${escapeHtml(group.sets[0])}`}</div><div style="margin: 6px 0;"><span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid ${badgeIcon}"></i> ${escapeHtml(group.shippingType)}</span></div><div style="font-weight:bold;color:${colorStyle};">ผล: ${escapeHtml(group.result)}</div>${prizeClaimHtml}</div></div>`;
     });
     
     document.getElementById("myTicketsList").innerHTML = html;
+  }
+
+  function openPrizeClaimModal(ticketKeys, amount) {
+    if (!Array.isArray(ticketKeys) || ticketKeys.length === 0) {
+      alert("ไม่พบสลากที่ยังขึ้นเงินได้ กรุณาโหลดรายการใหม่");
+      return;
+    }
+    pendingPrizeClaimKeys = ticketKeys;
+    document.getElementById("prizeClaimAmountText").innerText = `ยอดเงินรางวัล ${Number(amount).toFixed(2)} บาท เลือกวิธีรับเงิน`;
+    document.getElementById("prizeClaimModal").hidden = false;
+  }
+
+  function closePrizeClaimModal() {
+    document.getElementById("prizeClaimModal").hidden = true;
+    pendingPrizeClaimKeys = [];
+  }
+
+  async function submitPrizeClaim(method) {
+    if (!checkAuthStatus()) {
+      alert("กรุณาเข้าสู่ระบบ LINE ใหม่ก่อนขึ้นเงินรางวัล");
+      liff.login();
+      return;
+    }
+    if (pendingPrizeClaimKeys.length === 0) return;
+
+    const buttons = document.querySelectorAll("#prizeClaimModal button");
+    buttons.forEach(button => button.disabled = true);
+    try {
+      const result = await apiPost("requestPrizeClaim", {
+        tickets: pendingPrizeClaimKeys,
+        method: method
+      });
+      if (result.status !== "success") {
+        alert(result.message || "ส่งคำขอขึ้นเงินรางวัลไม่สำเร็จ");
+        return;
+      }
+      closePrizeClaimModal();
+      alert(result.message);
+      await loadUserDashboard();
+      await openMyTicketsSection();
+    } catch (error) {
+      console.error("Prize claim request failed:", error);
+      alert(error.message || "เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      buttons.forEach(button => button.disabled = false);
+    }
   }
 
   window.addEventListener('beforeunload', function() {
