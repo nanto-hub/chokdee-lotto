@@ -162,8 +162,10 @@
           <button class="btn-search" onclick="doSearch()">ค้นหา</button>
         </div>
         <div class="total-stock-count">ขณะนี้มีสลากในแผงทั้งหมด: <span id="totalTicketsCount">0</span> ใบ</div>
+        <div id="ticketListHeading" style="font-weight:bold; margin: 8px 0 10px; color:#555;">✨ สลากแนะนำวันนี้</div>
       </div>
       <div id="ticketsArea" class="ticket-list"></div>
+      <button type="button" id="loadMoreTicketsBtn" class="btn-back" style="display:none; margin-bottom:15px;" onclick="doSearch(false)">โหลดเพิ่มอีก 6 หมายเลข</button>
 
       <div id="summaryArea" class="order-summary">
         <h3>🛒 ตะกร้าสินค้าของคุณ</h3>
@@ -277,6 +279,11 @@
   let pendingPrizeClaimKeys = [];
 
   let _searchDebounceTimer = null;
+  let _searchOffset = 0;
+  let _searchHasMore = false;
+  let _searchQuery = "";
+  let _isSearching = false;
+  let _pendingSearch = false;
 
   function ticketGroupButtonId(ticketId, drawDate) {
     return "btn-" + ticketId + "-" + encodeURIComponent(drawDate);
@@ -291,7 +298,13 @@
     const button = event.target.closest(".btn-claim-prize");
     if (!button) return;
     try {
-      openPrizeClaimModal(JSON.parse(button.dataset.ticketKeys));
+      openPrizeClaimModal(
+        JSON.parse(button.dataset.ticketKeys),
+        Number(button.dataset.gross),
+        Number(button.dataset.tax),
+        Number(button.dataset.net),
+        Number(button.dataset.taxRate)
+      );
     } catch (error) {
       console.error("Invalid prize claim ticket data:", error);
       alert("เปิดรายการขึ้นเงินไม่สำเร็จ กรุณาโหลดรายการสลากใหม่");
@@ -568,25 +581,45 @@
     }
   }
 
-  let _isSearching = false;
-  async function doSearch() {
-    if (_isSearching) return;
+  async function doSearch(reset = true) {
+    const requestedQuery = document.getElementById("searchQ").value.trim().replace(/\D/g, "").slice(0, 6);
+    if (_isSearching) {
+      if (reset) _pendingSearch = true;
+      return;
+    }
+    if (!reset && (!_searchHasMore || requestedQuery !== _searchQuery)) return;
+
     _isSearching = true;
+    const ticketsArea = document.getElementById("ticketsArea");
+    const loadMoreButton = document.getElementById("loadMoreTicketsBtn");
+    if (reset) {
+      _searchQuery = requestedQuery;
+      _searchOffset = 0;
+      _searchHasMore = false;
+      rawTicketsData = [];
+      ticketsArea.innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
+      loadMoreButton.style.display = "none";
+      document.getElementById("ticketListHeading").innerText = requestedQuery
+        ? "🔎 ผลการค้นหาเลขท้าย " + requestedQuery
+        : "✨ สลากแนะนำวันนี้";
+    }
+    loadMoreButton.disabled = true;
     try {
-      const ticketsArea = document.getElementById("ticketsArea");
-      if (ticketsArea.children.length === 0) {
-        ticketsArea.innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
-      }
-      const q = document.getElementById("searchQ").value;
-      const res = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(q)}&_t=${Date.now()}`);
+      const res = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(_searchQuery)}&offset=${_searchOffset}&limit=6`);
       const responseData = await res.json();
+      if (responseData.status === "error") throw new Error(responseData.message || "ค้นหาสลากไม่สำเร็จ");
 
       storeConfig = responseData.config;
       document.getElementById("totalTicketsCount").innerText = responseData.totalInStock || 0;
-      rawTicketsData = responseData.tickets || [];
+      const pageTickets = responseData.tickets || [];
+      rawTicketsData = reset ? pageTickets : rawTicketsData.concat(pageTickets);
+      _searchHasMore = Boolean(responseData.hasMore);
+      _searchOffset = Number(responseData.offset || 0) + Number(responseData.pageSize || 6);
 
-      if (rawTicketsData.length === 0) {
-        ticketsArea.innerHTML = "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>";
+      if (pageTickets.length === 0 && reset) {
+        ticketsArea.innerHTML = requestedQuery
+          ? "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>"
+          : "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ยังไม่มีสลากในแผงครับ</p>";
         return;
       }
 
@@ -621,7 +654,7 @@
         return `
           <div class="ticket-card">
             <div class="ticket-img-container">
-              <img src="${escapeHtml(coverImg)}" loading="lazy">
+              <img src="${escapeHtml(coverImg)}" loading="lazy" decoding="async" fetchpriority="low" alt="สลากหมายเลข ${escapeHtml(group.ticketId)}">
               <div class="ticket-left-info">
                 ${qty > 1 ? 'เลขชุด<br>' : ''}<span>${qty}</span> ใบ<br><span>${millions}</span> ล้าน
               </div>
@@ -632,11 +665,19 @@
           </div>`;
       }).join('');
 
-      ticketsArea.innerHTML = fallbackHtml + html;
+      if (reset) ticketsArea.innerHTML = fallbackHtml + html;
+      else ticketsArea.insertAdjacentHTML("beforeend", fallbackHtml + html);
+      loadMoreButton.style.display = _searchHasMore ? "block" : "none";
     } catch (e) {
-      document.getElementById("ticketsArea").innerHTML = "<p style='grid-column: span 2; text-align:center; color:red;'>❌ โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่</p>";
+      if (reset) ticketsArea.innerHTML = `<p style='grid-column: span 2; text-align:center; color:red;'>❌ ${escapeHtml(e.message || "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่")}</p>`;
+      else alert(e.message || "โหลดสลากชุดถัดไปไม่สำเร็จ กรุณาลองใหม่");
     } finally {
       _isSearching = false;
+      loadMoreButton.disabled = false;
+      if (_pendingSearch) {
+        _pendingSearch = false;
+        doSearch(true);
+      }
     }
   }
 
@@ -944,31 +985,44 @@
       groupedMyTickets[key].ticketRows.push(t);
     });
 
+    const claimableTickets = tickets.filter(ticket =>
+      !ticket.prizeClaimStatus && ticket.prizeAmount !== null &&
+      ticket.prizeAmount !== "" && Number.isFinite(Number(ticket.prizeAmount)) &&
+      Number(ticket.prizeAmount) > 0
+    );
+    if (claimableTickets.length > 0) {
+      const grossAmount = claimableTickets.reduce((sum, ticket) => sum + Number(ticket.prizeAmount), 0);
+      const taxRate = Number(claimableTickets[0].prizeTaxRate) || 0;
+      const taxAmount = claimableTickets.reduce((sum, ticket) =>
+        sum + Math.round(Math.round(Number(ticket.prizeAmount) * 100) * (Number(ticket.prizeTaxRate) || 0) / 100) / 100, 0);
+      const netAmount = Math.round((grossAmount - taxAmount) * 100) / 100;
+      const ticketKeys = claimableTickets.map(ticket => ticket.ticketKey);
+      html += `<div style="width:100%; box-sizing:border-box; padding:12px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; text-align:center; margin-bottom:12px;">
+        <div style="font-weight:bold; color:#1b5e20;">สลากที่ถูกรางวัลและยังไม่ขึ้นเงิน ${claimableTickets.length} ใบ</div>
+        <div style="margin:6px 0; font-size:13px;">ยอดก่อนหักภาษี ${grossAmount.toFixed(2)} บาท · ภาษี ${taxRate}% (${taxAmount.toFixed(2)} บาท) · รับสุทธิ ${netAmount.toFixed(2)} บาท</div>
+        <button type="button" class="btn-claim-prize" style="max-width:360px;" data-ticket-keys="${escapeHtml(JSON.stringify(ticketKeys))}" data-gross="${grossAmount.toFixed(2)}" data-tax="${taxAmount.toFixed(2)}" data-net="${netAmount.toFixed(2)}" data-tax-rate="${taxRate}">🎉 ขึ้นเงินรางวัลทั้งหมด (${claimableTickets.length} ใบ)</button>
+      </div>`;
+    }
+
     Object.values(groupedMyTickets).forEach(group => {
       let badgeBgColor = group.shippingType === "รับใบจริง" ? "#0275d8" : "#6f42c1";
       let badgeIcon    = group.shippingType === "รับใบจริง" ? "fa-truck" : "fa-box-archive";
       let colorStyle   = group.result.includes('ถูก') ? '#28a745' : (group.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
       let qty          = group.sets.length;
       let imageAreaHtml = "";
-      const claimableTickets = group.ticketRows.filter(ticket =>
-        !ticket.prizeClaimStatus && ticket.prizeAmount !== null &&
-        ticket.prizeAmount !== "" && Number.isFinite(Number(ticket.prizeAmount)) &&
-        Number(ticket.prizeAmount) > 0
-      );
       const pendingClaims = group.ticketRows.filter(ticket => ticket.prizeClaimStatus);
-      const claimableAmount = claimableTickets.reduce((sum, ticket) => sum + Number(ticket.prizeAmount), 0);
+      const unclaimedWinningTickets = group.ticketRows.filter(ticket =>
+        !ticket.prizeClaimStatus && String(ticket.result || "").includes("🎉 ถูก")
+      );
+      const groupClaimableTickets = unclaimedWinningTickets.filter(ticket =>
+        ticket.prizeAmount !== null && ticket.prizeAmount !== "" &&
+        Number.isFinite(Number(ticket.prizeAmount)) && Number(ticket.prizeAmount) > 0
+      );
       let prizeClaimHtml = "";
-      if (claimableTickets.length > 0) {
-        const ticketKeys = claimableTickets.map(ticket => ticket.ticketKey);
-        prizeClaimHtml = `<button type="button" class="btn-claim-prize" data-ticket-keys="${escapeHtml(JSON.stringify(ticketKeys))}" data-amount="${claimableAmount.toFixed(2)}">🎉 ขึ้นเงินรางวัล ${claimableAmount.toFixed(2)} บาท</button>`;
-        if (pendingClaims.length > 0) {
-          const statuses = [...new Set(pendingClaims.map(ticket => ticket.prizeClaimStatus))];
-          prizeClaimHtml += `<div class="prize-claim-status">${escapeHtml(statuses.join(" / "))}</div>`;
-        }
-      } else if (pendingClaims.length > 0) {
+      if (pendingClaims.length > 0) {
         const statuses = [...new Set(pendingClaims.map(ticket => ticket.prizeClaimStatus))];
         prizeClaimHtml = `<div class="prize-claim-status">${escapeHtml(statuses.join(" / "))}</div>`;
-      } else if (group.result.includes("🎉 ถูก")) {
+      } else if (unclaimedWinningTickets.length > 0 && groupClaimableTickets.length === 0) {
         prizeClaimHtml = `<div class="prize-claim-status">ยังไม่มีจำนวนเงินรางวัลของงวดนี้ กรุณาติดต่อร้าน</div>`;
       }
       
@@ -1014,13 +1068,14 @@
     document.getElementById("myTicketsList").innerHTML = html;
   }
 
-  function openPrizeClaimModal(ticketKeys, amount) {
+  function openPrizeClaimModal(ticketKeys, grossAmount, taxAmount, netAmount, taxRate) {
     if (!Array.isArray(ticketKeys) || ticketKeys.length === 0) {
       alert("ไม่พบสลากที่ยังขึ้นเงินได้ กรุณาโหลดรายการใหม่");
       return;
     }
     pendingPrizeClaimKeys = ticketKeys;
-    document.getElementById("prizeClaimAmountText").innerText = `ยอดเงินรางวัล ${Number(amount).toFixed(2)} บาท เลือกวิธีรับเงิน`;
+    document.getElementById("prizeClaimAmountText").innerText =
+      `รวม ${ticketKeys.length} ใบ · ก่อนหักภาษี ${grossAmount.toFixed(2)} บาท · หักภาษี ${taxRate}% (${taxAmount.toFixed(2)} บาท) · รับสุทธิ ${netAmount.toFixed(2)} บาท`;
     document.getElementById("prizeClaimModal").hidden = false;
   }
 
@@ -1049,7 +1104,7 @@
         return;
       }
       closePrizeClaimModal();
-      alert(result.message);
+      alert(`${result.message}\nยอดก่อนหักภาษี ${Number(result.grossAmount).toFixed(2)} บาท\nหักภาษี ${Number(result.taxRate)}% (${Number(result.taxAmount).toFixed(2)} บาท)\nยอดสุทธิ ${Number(result.amount).toFixed(2)} บาท`);
       await loadUserDashboard();
       await openMyTicketsSection();
     } catch (error) {
