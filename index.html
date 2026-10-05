@@ -257,8 +257,8 @@
           <h3 id="prizeClaimTitle">🎉 รับเงินรางวัล</h3>
           <p id="prizeClaimAmountText"></p>
           <p id="prizeClaimBankText"></p>
-          <button type="button" class="btn-claim-method" style="background:#28a745;" onclick="submitPrizeClaim('wallet')">💰 รับเข้าวอเลททันที</button>
-          <button type="button" class="btn-claim-method" style="background:#0275d8;" onclick="submitPrizeClaim('bank')">🏦 โอนเข้าบัญชีที่ลงทะเบียน</button>
+          <button type="button" class="btn-claim-method" data-method="wallet" style="background:#28a745;" onclick="submitPrizeClaim('wallet')">💰 รับเข้าวอเลททันที</button>
+          <button type="button" class="btn-claim-method" data-method="bank" style="background:#0275d8;" onclick="submitPrizeClaim('bank')">🏦 โอนเข้าบัญชีที่ลงทะเบียน</button>
           <button type="button" class="btn-back" onclick="closePrizeClaimModal()">ยกเลิก</button>
         </div>
       </div>
@@ -326,12 +326,21 @@
     _searchDebounceTimer = setTimeout(doSearch, 450);
   }
 
-  function copyShareLink() {
+  async function copyShareLink() {
     const copyText = document.getElementById("myShareLink");
-    copyText.select();
-    copyText.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(copyText.value);
-    alert("คัดลอกลิงก์ชวนเพื่อนเรียบร้อยแล้ว!\nส่งลิงก์นี้ให้เพื่อนกดเข้าแผงหวยได้เลยครับ 💸");
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(copyText.value);
+      } else {
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        if (!document.execCommand("copy")) throw new Error("ไม่สามารถคัดลอกลิงก์ได้");
+      }
+      alert("คัดลอกลิงก์ชวนเพื่อนเรียบร้อยแล้ว!\nส่งลิงก์นี้ให้เพื่อนกดเข้าแผงหวยได้เลยครับ 💸");
+    } catch (error) {
+      console.error("Copy share link failed:", error);
+      alert("คัดลอกลิงก์ไม่สำเร็จ กรุณาคัดลอกข้อความในช่องลิงก์ด้วยตนเอง");
+    }
   }
 
   function checkAuthStatus() {
@@ -629,18 +638,23 @@
       }
 
       let groupedTickets = {};
-      rawTicketsData.forEach(item => {
+      pageTickets.forEach(item => {
         let key = item.ticketId + "_" + item.drawDate;
         if (!groupedTickets[key]) groupedTickets[key] = { ticketId: item.ticketId, drawDate: item.drawDate, allSets: [], imageUrls: [] };
         groupedTickets[key].allSets.push(item.setNo);
         if (item.imageUrl) groupedTickets[key].imageUrls.push(item.imageUrl);
       });
 
+      const shippingType = document.getElementById("shippingType");
+      const previousShippingType = shippingType.value;
       let shippingOptionsHtml = `<option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + ค่าเช่าพื้นที่จัดเก็บ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>`;
       if (storeConfig && storeConfig.allowShipping) {
         shippingOptionsHtml += `<option value="ส่งใบจริง">🚚 ส่งใบจริง (บวกค่าส่งเหมา ${storeConfig.feeShipping} บ.)</option>`;
       }
-      document.getElementById("shippingType").innerHTML = shippingOptionsHtml;
+      shippingType.innerHTML = shippingOptionsHtml;
+      if ([...shippingType.options].some(option => option.value === previousShippingType))
+        shippingType.value = previousShippingType;
+      reCalculatePrice();
 
       let html = Object.values(groupedTickets).map(group => {
         let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId && c.drawDate === group.drawDate).length;
@@ -666,7 +680,7 @@
       }).join('');
 
       if (reset) ticketsArea.innerHTML = fallbackHtml + html;
-      else ticketsArea.insertAdjacentHTML("beforeend", fallbackHtml + html);
+      else ticketsArea.insertAdjacentHTML("beforeend", html);
       loadMoreButton.style.display = _searchHasMore ? "block" : "none";
     } catch (e) {
       if (reset) ticketsArea.innerHTML = `<p style='grid-column: span 2; text-align:center; color:red;'>❌ ${escapeHtml(e.message || "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่")}</p>`;
@@ -878,14 +892,35 @@
     btnOrder.disabled = true;
     document.querySelectorAll('.btn-buy').forEach(b => b.disabled = true);
 
+    const restoreOrderControls = () => {
+      btnOrder.disabled = false;
+      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
+      document.querySelectorAll(".btn-buy").forEach(button => {
+        const inCart = cart.some(item =>
+          item.ticketId === button.dataset.ticketId && item.drawDate === button.dataset.drawDate
+        );
+        button.disabled = inCart;
+        button.innerHTML = inCart
+          ? '<i class="fa-solid fa-basket-shopping"></i> อยู่ในตะกร้า'
+          : '<i class="fa-solid fa-basket-shopping"></i> หยิบใส่ตะกร้า';
+        button.style.backgroundColor = inCart ? "#888" : "";
+      });
+      if (cart.length > 0) startCartTimer();
+    };
+    let orderSucceeded = false;
     try {
       const result = await apiPost("createOrder", { data: { tickets: ticketKeys, shippingType: type } });
+      if (result.status !== "success") {
+        alert(result.message || "สั่งซื้อไม่สำเร็จ กรุณาลองใหม่");
+        return;
+      }
+      orderSucceeded = true;
       alert(result.message);
       location.reload();
     } catch (e) {
-      btnOrder.disabled = false;
-      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
-      document.querySelectorAll('.btn-buy').forEach(b => b.disabled = false);
+      alert(e.message || "เชื่อมต่อขัดข้อง สั่งซื้อไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      if (!orderSucceeded) restoreOrderControls();
     }
   }
 
@@ -1092,8 +1127,12 @@
     }
     if (pendingPrizeClaimKeys.length === 0) return;
 
-    const buttons = document.querySelectorAll("#prizeClaimModal button");
-    buttons.forEach(button => button.disabled = true);
+    const modalButtons = document.querySelectorAll("#prizeClaimModal button");
+    const methodButtons = document.querySelectorAll("#prizeClaimModal .btn-claim-method");
+    const methodButtonHtml = Array.from(methodButtons, button => button.innerHTML);
+    modalButtons.forEach(button => button.disabled = true);
+    const selectedButton = Array.from(methodButtons).find(button => button.dataset.method === method);
+    if (selectedButton) selectedButton.innerText = "⏳ กำลังส่งคำขอ...";
     try {
       const result = await apiPost("requestPrizeClaim", {
         tickets: pendingPrizeClaimKeys,
@@ -1104,14 +1143,22 @@
         return;
       }
       closePrizeClaimModal();
+      if (method === "wallet") {
+        const mainBalance = Number(document.getElementById("mainBalanceText").innerText) || 0;
+        const affiliateBalance = Number(document.getElementById("affBalanceText").innerText) || 0;
+        const updatedMainBalance = mainBalance + Number(result.amount);
+        document.getElementById("mainBalanceText").innerText = updatedMainBalance.toFixed(2);
+        document.getElementById("walletBalanceText").innerText =
+          (updatedMainBalance + affiliateBalance).toFixed(2);
+      }
       alert(`${result.message}\nยอดก่อนหักภาษี ${Number(result.grossAmount).toFixed(2)} บาท\nหักภาษี ${Number(result.taxRate)}% (${Number(result.taxAmount).toFixed(2)} บาท)\nยอดสุทธิ ${Number(result.amount).toFixed(2)} บาท`);
-      await loadUserDashboard();
       await openMyTicketsSection();
     } catch (error) {
       console.error("Prize claim request failed:", error);
       alert(error.message || "เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่");
     } finally {
-      buttons.forEach(button => button.disabled = false);
+      modalButtons.forEach(button => button.disabled = false);
+      methodButtons.forEach((button, index) => button.innerHTML = methodButtonHtml[index]);
     }
   }
 
