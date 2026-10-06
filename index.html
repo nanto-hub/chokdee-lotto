@@ -436,6 +436,7 @@
         document.getElementById("menuTickets").style.display = "block";
         
         loadUserDashboard();
+        doSearch();
       } else {
         if (liff.isInClient()) {
           liff.login();
@@ -633,8 +634,17 @@
     }
     loadMoreButton.disabled = true;
     try {
-      const res = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(_searchQuery)}&offset=${_searchOffset}&limit=6`);
-      const responseData = await res.json();
+      let responseData;
+      if (checkAuthStatus()) {
+        responseData = await apiPost("search", {
+          q: _searchQuery,
+          offset: _searchOffset,
+          limit: 6
+        });
+      } else {
+        const res = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(_searchQuery)}&offset=${_searchOffset}&limit=6`);
+        responseData = await res.json();
+      }
       if (responseData.status === "error") throw new Error(responseData.message || "ค้นหาสลากไม่สำเร็จ");
 
       storeConfig = responseData.config;
@@ -977,7 +987,11 @@
 
     try {
       const result = await apiPost("saveProfile", { data });
-      alert(result.message);
+      if (result.status !== "success") {
+        alert(result.message || "บันทึกไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองใหม่");
+        return;
+      }
+      alert(result.message || "บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว");
       location.reload();
     } catch(e) {
       alert("บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
