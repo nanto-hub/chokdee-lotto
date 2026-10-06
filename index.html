@@ -894,6 +894,41 @@
     let totalCost = parseFloat(document.getElementById("estPrice").innerText) || 0;
     const btnOrder = document.getElementById("btnSubmitOrder");
 
+        if (btnOrder.disabled) return;
+    btnOrder.disabled = true;
+    btnOrder.innerText = "⏳ กำลังตรวจสอบยอดเงินจริง...";
+    let dashboard;
+    try {
+      dashboard = await apiPost("getDashboard");
+    } catch (error) {
+      console.error("Order balance refresh failed:", error);
+      alert(error.message || "ตรวจสอบยอดเงินล่าสุดไม่สำเร็จ กรุณาลองใหม่");
+      btnOrder.disabled = false;
+      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
+      return;
+    }
+    if (dashboard.status !== "found" || !dashboard.data) {
+      alert(dashboard.message || "ไม่พบข้อมูลยอดเงินสมาชิก กรุณาเข้าสู่ระบบใหม่");
+      btnOrder.disabled = false;
+      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
+      return;
+    }
+    const refreshedMainBalance = Number(dashboard.data.balance);
+    const refreshedAffiliateBalance = Number(dashboard.data.affBalance);
+    if (!Number.isFinite(refreshedMainBalance) || !Number.isFinite(refreshedAffiliateBalance)) {
+      alert("อ่านยอดเงินล่าสุดไม่สำเร็จ กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง");
+      btnOrder.disabled = false;
+      btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
+      return;
+    }
+    mBal = refreshedMainBalance;
+    aBal = refreshedAffiliateBalance;
+    totalWallet = mBal + aBal;
+    document.getElementById("mainBalanceText").innerText = mBal.toFixed(2);
+    document.getElementById("affBalanceText").innerText = aBal.toFixed(2);
+    document.getElementById("walletBalanceText").innerText = totalWallet.toFixed(2);
+    btnOrder.disabled = false;
+    btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
     if (totalWallet < totalCost) {
       clearInterval(cartExpireTimerInterval);
       btnOrder.innerText = "⏳ กำลังจองสลาก...";
