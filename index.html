@@ -402,8 +402,8 @@
     const lineOaBtn = document.getElementById("lineOaBtn");
     if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
     document.getElementById("searchAreaTop").style.display = "block";
-    doSearch(); 
-    await initLiffAndWait();
+     
+    await initLiffAndWait();     doSearch();
 
     if (statusElem) statusElem.style.display = "none";
   }
@@ -436,7 +436,7 @@
         document.getElementById("menuTickets").style.display = "block";
         
         loadUserDashboard();
-        doSearch();
+
       } else {
         if (liff.isInClient()) {
           liff.login();
