@@ -9,16 +9,19 @@
 
   <style>
     body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f6f9; margin: 0; padding: 0; color: #333; }
-    .header-bar { background-color: #d9534f; color: white; padding: 15px; text-align: center; position: relative; font-size: 20px; font-weight: bold; }
-    .setting-btn { position: absolute; left: 15px; top: 15px; color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; padding: 5px; }
+    .header-bar { background-color: #d9534f; color: white; padding: 8px 10px; text-align: center; position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 48px; box-sizing: border-box; font-size: 20px; font-weight: bold; }
+    .header-start { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+    .setting-btn { color: white; font-size: 22px; cursor: pointer; transition: transform 0.2s; padding: 3px; }
     .setting-btn:hover { transform: rotate(45deg); }
 
-    .store-status-container { position: absolute; right: 15px; top: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-    .store-badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: bold; color: white; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .store-status-container { display: flex; align-items: center; }
+    .store-badge { font-size: 10px; padding: 3px 5px; border-radius: 12px; font-weight: bold; color: white; display: none; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .bg-open   { background-color: #28a745; border: 1px solid #1e7e34; }
     .bg-closed { background-color: #6c757d; border: 1px solid #545b62; }
+    #titleText { flex: 1 1 auto; min-width: 0; font-size: clamp(14px, 4.2vw, 20px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-wallet { display: none; flex: 0 0 auto; border: 1px solid rgba(255,255,255,0.65); border-radius: 16px; padding: 5px 8px; background: rgba(0,0,0,0.12); color: white; font-size: 12px; font-weight: bold; white-space: nowrap; cursor: pointer; }
 
-    .dropdown-menu { display: none; position: absolute; left: 15px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 170px; }
+    .dropdown-menu { display: none; position: absolute; left: 10px; top: 50px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; width: 190px; }
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
     .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
@@ -114,12 +117,14 @@
 <body>
 
   <div class="header-bar">
-    <i class="fa-solid fa-gear setting-btn" id="gearIcon" onclick="toggleDropdown(event)"></i>
-    <span id="titleText">🎫 โชคดีล็อตเตอรี่</span>
-    <div class="store-status-container">
-      <span id="storeStatusBadge" class="store-badge">...</span>
+    <div class="header-start">
+      <i class="fa-solid fa-gear setting-btn" id="gearIcon" onclick="toggleDropdown(event)"></i>
+      <div class="store-status-container"><span id="storeStatusBadge" class="store-badge">...</span></div>
     </div>
+    <span id="titleText">🎫 โชคดีล็อตเตอรี่</span>
+    <button type="button" id="headerWalletBalance" class="header-wallet" onclick="openWalletSection()">💰 <span id="headerWalletAmount">-</span></button>
     <div id="myDropdown" class="dropdown-menu">
+      <a href="#" id="menuWallet" onclick="openWalletSection()" style="display:none;">💰 ยอดเงิน / กระเป๋าเงิน</a>
       <a href="#" id="menuProfile" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
       <a href="#" id="menuTickets" onclick="openMyTicketsSection()">🎟️ สลากของคุณ</a>
       <a href="#" id="menuLogin" onclick="liffLogin()" style="display:none; color: #28a745; font-weight: bold;"><i class="fa-solid fa-right-to-bracket"></i> ลงชื่อเข้าใช้งาน</a>
@@ -133,6 +138,13 @@
       <span id="lineFallbackMessage">หากติดต่อ LINE OA ไม่ได้ กรุณาติดต่อแอดมินทาง </span>
       <a href="https://www.facebook.com/profile.php?id=61595235477425" target="_blank" rel="noopener noreferrer">Facebook</a>
     </div>
+    <div id="referralLinkSection" class="line-fallback-notice" style="display:none;">
+      <strong>🔗 ลิงก์แนะนำเพื่อน (รับโบนัส 1% ของยอดซื้อ)</strong>
+      <div style="display:flex; gap:6px; margin-top:8px;">
+        <input type="text" id="myShareLink" readonly aria-label="ลิงก์แนะนำเพื่อน" style="flex:1; min-width:0; padding:7px; font-size:12px; border:1px solid #ddd; border-radius:4px; background:#fff; color:#333;">
+        <button type="button" onclick="copyShareLink()" style="background:#ff9800; color:#fff; border:none; border-radius:4px; padding:0 12px; font-weight:bold; cursor:pointer;">คัดลอก</button>
+      </div>
+    </div>
 
     <div id="walletSummaryCard" class="wallet-card" style="display: none;">
       <div style="font-size: 13px; color: #ddd; margin-bottom: 5px;">💰 กระเป๋าเงินของคุณ</div>
@@ -144,21 +156,12 @@
         <div style="color: #ff9800;">🎁 โบนัสแนะนำเพื่อน</div>
         <div style="font-weight: bold; color: #ff9800;"><span id="affBalanceText">0.00</span> บ.</div>
       </div>
-      <div class="wallet-balance">
-        <div style="font-size: 14px;">ยอดรวมซื้อหวยได้:</div>
-        <div><span id="walletBalanceText">0.00</span> บาท</div>
-      </div>
+      <div class="wallet-balance"><div style="font-size: 14px;">ยอดรวมซื้อหวยได้:</div><div><span id="walletBalanceText">0.00</span> บาท</div></div>
       <div class="wallet-actions">
-        <button class="btn-wallet btn-deposit"  onclick="openDepositView()"><i class="fa-solid fa-circle-plus"></i> เติมเงิน</button>
+        <button class="btn-wallet btn-deposit" onclick="openDepositView()"><i class="fa-solid fa-circle-plus"></i> เติมเงิน</button>
         <button class="btn-wallet btn-withdraw" onclick="openWithdrawView()"><i class="fa-solid fa-money-bill-transfer"></i> แจ้งถอน</button>
       </div>
-      <div style="margin-top: 15px; padding: 10px; background: rgba(255, 152, 0, 0.15); border: 1px dashed #ff9800; border-radius: 8px;">
-        <div style="font-size: 12px; color: #ffeb3b; font-weight: bold; margin-bottom: 5px;"><i class="fa-solid fa-share-nodes"></i> ลิงก์ชวนเพื่อน (รับโบนัส 1% ของยอดซื้อ)</div>
-        <div style="display: flex; gap: 5px;">
-          <input type="text" id="myShareLink" readonly style="flex: 1; padding: 6px; font-size: 11px; border: none; border-radius: 4px; background: #fff; color: #333;">
-          <button onclick="copyShareLink()" style="background: #ff9800; color: #fff; border: none; border-radius: 4px; padding: 0 12px; font-weight: bold; cursor: pointer;">คัดลอก</button>
-        </div>
-      </div>
+      <button type="button" class="btn-back" onclick="closeWalletSection()">⬅️ กลับหน้าแผงหวย</button>
     </div>
 
     <!-- 1. แผงค้นหาและแสดงรายการหวย -->
@@ -377,8 +380,23 @@
     if (message) message.innerText = "⚠️ ไม่สามารถเชื่อมต่อ LINE ได้ในขณะนี้ หาก LINE OA ใช้งานไม่ได้ กรุณาติดต่อแอดมินทาง ";
   }
 
+  function updateHeaderWalletBalance(balance) {
+    const amount = document.getElementById("headerWalletAmount");
+    if (amount && Number.isFinite(balance))
+      amount.innerText = balance.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function updateStoreStatus(config) {
+    const badge = document.getElementById("storeStatusBadge");
+    if (!badge || !config || typeof config.isOpenNow !== "boolean") return;
+    badge.innerText = config.isOpenNow ? "เปิดร้าน" : "ปิดร้าน";
+    badge.className = "store-badge " + (config.isOpenNow ? "bg-open" : "bg-closed");
+    badge.style.display = "inline-block";
+  }
+
   function hideAllSections() {
     document.getElementById("lottoSection").style.display = "none";
+    document.getElementById("walletSummaryCard").style.display = "none";
     document.getElementById("depositActionView").style.display = "none";
     document.getElementById("withdrawActionView").style.display = "none";
     document.getElementById("profileSection").style.display = "none";
@@ -443,6 +461,7 @@
       if (liff.isLoggedIn()) {
         document.getElementById("menuLogin").style.display = "none";
         document.getElementById("menuLogout").style.display = "block";
+        document.getElementById("menuWallet").style.display = "block";
         document.getElementById("menuProfile").style.display = "block";
         document.getElementById("menuTickets").style.display = "block";
         
@@ -455,7 +474,10 @@
         }
         document.getElementById("menuLogin").style.display = "block";
         document.getElementById("menuLogout").style.display = "none";
+        document.getElementById("menuWallet").style.display = "none";
         document.getElementById("menuProfile").style.display = "none";
+        document.getElementById("headerWalletBalance").style.display = "none";
+        document.getElementById("referralLinkSection").style.display = "none";
         document.getElementById("menuTickets").style.display = "none";
         document.getElementById("walletSummaryCard").style.display = "none";
       }
@@ -489,6 +511,8 @@
         document.getElementById("mainBalanceText").innerText = mBal.toFixed(2);
         document.getElementById("affBalanceText").innerText = aBal.toFixed(2);
         document.getElementById("walletBalanceText").innerText = (mBal + aBal).toFixed(2);
+        updateHeaderWalletBalance(mBal + aBal);
+        document.getElementById("headerWalletBalance").style.display = "inline-flex";
         document.getElementById("fullName").value = result.data.fullName || "";
         document.getElementById("phone").value = result.data.phone || "";
         document.getElementById("addrHome").value        = result.data.addrHome || "";
@@ -506,8 +530,11 @@
         
         if (result.data.myReferralCode) {
           document.getElementById("myShareLink").value = `https://liff.line.me/${LIFF_ID}?ref=${result.data.myReferralCode}`;
+          document.getElementById("referralLinkSection").style.display = "block";
+        } else {
+          document.getElementById("referralLinkSection").style.display = "none";
         }
-        document.getElementById("walletSummaryCard").style.display = "block";
+        document.getElementById("walletSummaryCard").style.display = "none";
         document.getElementById("searchAreaTop").style.display = "block";
 
         checkActiveDeposit(result.pendingDeposit);
@@ -540,6 +567,22 @@
   function closeProfileSection() { 
     hideAllSections(); 
     document.getElementById("lottoSection").style.display = "block"; 
+  }
+
+  function openWalletSection() {
+    if (!checkAuthStatus()) {
+      alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนดูยอดเงินครับ");
+      liff.login();
+      return;
+    }
+    hideAllSections();
+    document.getElementById("walletSummaryCard").style.display = "block";
+    document.getElementById("myDropdown").style.display = "none";
+  }
+
+  function closeWalletSection() {
+    hideAllSections();
+    document.getElementById("lottoSection").style.display = "block";
   }
 
   function openDepositView() { 
@@ -660,6 +703,7 @@
       if (responseData.status === "error") throw new Error(responseData.message || "ค้นหาสลากไม่สำเร็จ");
 
       storeConfig = responseData.config;
+      updateStoreStatus(responseData.config);
       document.getElementById("totalTicketsCount").innerText = responseData.totalInStock || 0;
       const pageTickets = responseData.tickets || [];
       rawTicketsData = reset ? pageTickets : rawTicketsData.concat(pageTickets);
@@ -939,6 +983,7 @@
     document.getElementById("mainBalanceText").innerText = mBal.toFixed(2);
     document.getElementById("affBalanceText").innerText = aBal.toFixed(2);
     document.getElementById("walletBalanceText").innerText = totalWallet.toFixed(2);
+    updateHeaderWalletBalance(totalWallet);
     btnOrder.disabled = false;
     btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
     if (totalWallet < totalCost) {
@@ -1261,6 +1306,7 @@
         document.getElementById("mainBalanceText").innerText = updatedMainBalance.toFixed(2);
         document.getElementById("walletBalanceText").innerText =
           (updatedMainBalance + affiliateBalance).toFixed(2);
+        updateHeaderWalletBalance(updatedMainBalance + affiliateBalance);
       }
       alert(result.message || "บันทึกคำขอรับสลากจริงแล้ว");
       await openMyTicketsSection();
@@ -1304,6 +1350,7 @@
         document.getElementById("mainBalanceText").innerText = updatedMainBalance.toFixed(2);
         document.getElementById("walletBalanceText").innerText =
           (updatedMainBalance + affiliateBalance).toFixed(2);
+        updateHeaderWalletBalance(updatedMainBalance + affiliateBalance);
       }
       alert(`${result.message}\nยอดก่อนหักภาษี ${Number(result.grossAmount).toFixed(2)} บาท\nหักภาษี ${Number(result.taxRate)}% (${Number(result.taxAmount).toFixed(2)} บาท)\nยอดสุทธิ ${Number(result.amount).toFixed(2)} บาท`);
       await openMyTicketsSection();
