@@ -485,7 +485,7 @@
         document.getElementById("menuProfile").style.display = "block";
         document.getElementById("menuTickets").style.display = "block";
         
-        await loadUserDashboard();
+        void loadUserDashboard();
       } else {
         if (liff.isInClient()) {
           liff.login();
