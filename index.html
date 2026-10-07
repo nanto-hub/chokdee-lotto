@@ -80,6 +80,8 @@
     .status-msg { text-align: center; font-size: 13px; color: #666; margin-bottom: 10px; background: #e9ecef; padding: 6px; border-radius: 4px; }
     .timer-box { font-size: 18px; font-weight: bold; color: #d9534f; margin-top: 15px; background-color: #ffeeba; padding: 10px; border-radius: 8px; border: 1px solid #ffdf7e; }
     .alert-box { background-color: #ffe6e6; color: #cc0000; padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid #ff9999; font-size: 14px; }
+    .line-fallback-notice { background: #fff8e1; color: #5f4b00; padding: 10px 12px; border: 1px solid #f0d878; border-radius: 8px; margin: 0 0 12px; font-size: 14px; text-align: center; }
+    .line-fallback-notice a { color: #0757a6; font-weight: bold; }
 
     .my-ticket-card { background: white; border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; align-items: center; }
     .my-ticket-card img { width: 100%; max-width: 300px; height: auto; border-radius: 8px; border: 1px solid #eee; object-fit: contain; }
@@ -127,6 +129,10 @@
 
   <div class="main-container">
     <div id="status" class="status-msg">กำลังตั้งค่าการเชื่อมต่อ...</div>
+    <div id="lineFallbackNotice" class="line-fallback-notice" role="note">
+      <span id="lineFallbackMessage">หากติดต่อ LINE OA ไม่ได้ กรุณาติดต่อแอดมินทาง </span>
+      <a href="https://www.facebook.com/profile.php?id=61595235477425" target="_blank" rel="noopener noreferrer">Facebook</a>
+    </div>
 
     <div id="walletSummaryCard" class="wallet-card" style="display: none;">
       <div style="font-size: 13px; color: #ddd; margin-bottom: 5px;">💰 กระเป๋าเงินของคุณ</div>
@@ -366,6 +372,11 @@
     return typeof liff !== "undefined" && liff.isLoggedIn() && Boolean(liff.getIDToken());
   }
 
+  function showLineFallbackNotice() {
+    const message = document.getElementById("lineFallbackMessage");
+    if (message) message.innerText = "⚠️ ไม่สามารถเชื่อมต่อ LINE ได้ในขณะนี้ หาก LINE OA ใช้งานไม่ได้ กรุณาติดต่อแอดมินทาง ";
+  }
+
   function hideAllSections() {
     document.getElementById("lottoSection").style.display = "none";
     document.getElementById("depositActionView").style.display = "none";
@@ -450,6 +461,7 @@
       }
     } catch (e) { 
       console.warn("LIFF init timed out or failed:", e);
+      showLineFallbackNotice();
     } finally {
       if (statusElem && statusElem.dataset.dashboardError !== "true") statusElem.style.display = "none";
     }
@@ -500,7 +512,7 @@
 
         checkActiveDeposit(result.pendingDeposit);
       }
-    } catch (err) {       console.error("Profile load err", err);       const statusElem = document.getElementById("status");       statusElem.dataset.dashboardError = "true";       statusElem.innerText = "⚠️ โหลดข้อมูลบัญชีไม่สำเร็จ กรุณาโหลดหน้าใหม่อีกครั้ง";       statusElem.style.display = "block";     }
+    } catch (err) {       console.error("Profile load err", err);       const statusElem = document.getElementById("status");       statusElem.dataset.dashboardError = "true";       statusElem.innerText = "⚠️ โหลดข้อมูลบัญชีไม่สำเร็จ กรุณาโหลดหน้าใหม่อีกครั้ง";       statusElem.style.display = "block";       if (/LINE|token|เข้าสู่ระบบ LINE|ยืนยันตัวตน/i.test(String(err && err.message || ""))) showLineFallbackNotice();     }
   }
 
   function checkActiveDeposit(result) {
