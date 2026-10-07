@@ -374,7 +374,7 @@
     document.getElementById("myTicketsSection").style.display = "none";
   }
 
-  async function apiPost(action, fields = {}) {
+  async function apiPost(action, fields = {}, retryAttempt = 0) {
     if (typeof liff === "undefined" || !liff.isLoggedIn()) throw new Error("กรุณาเข้าสู่ระบบ LINE");
     const idToken = liff.getIDToken();
     if (!idToken) throw new Error("ไม่พบ LINE ID token");
@@ -385,14 +385,14 @@
         body: JSON.stringify({ action, idToken, ...fields })
       });
     } catch (error) {
-      throw new Error(`เรียก Backend ไม่สำเร็จ (${error.message}) ตรวจ BACKEND_URL และสิทธิ์การเข้าถึง Web App`);
+      if (retryAttempt < 2 && ["getDashboard", "getProfile", "getMyTickets", "checkPendingDeposit", "search"].includes(action)) {           await new Promise(resolve => setTimeout(resolve, 300 * (retryAttempt + 1)));           return apiPost(action, fields, retryAttempt + 1);         }         throw new Error(`เรียก Backend ไม่สำเร็จ (${error.message}) ตรวจ BACKEND_URL และสิทธิ์การเข้าถึง Web App`);
     }
 
     const responseText = await response.text();
     try {
       return JSON.parse(responseText);
     } catch (error) {
-      const responseSummary = responseText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+      if (response.status === 404 && retryAttempt < 2 && ["getDashboard", "getProfile", "getMyTickets", "checkPendingDeposit", "search"].includes(action)) {         await new Promise(resolve => setTimeout(resolve, 300 * (retryAttempt + 1)));         return apiPost(action, fields, retryAttempt + 1);       }       const responseSummary = responseText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
       throw new Error(`Backend ตอบกลับไม่ใช่ JSON (HTTP ${response.status})${responseSummary ? `: ${responseSummary}` : ""}`);
     }
   }
@@ -405,7 +405,7 @@
      
     await initLiffAndWait();     doSearch();
 
-    if (statusElem) statusElem.style.display = "none";
+    if (statusElem && statusElem.dataset.dashboardError !== "true") statusElem.style.display = "none";
   }
 
   async function initLiffAndWait() {
@@ -435,7 +435,7 @@
         document.getElementById("menuProfile").style.display = "block";
         document.getElementById("menuTickets").style.display = "block";
         
-        loadUserDashboard();
+        await loadUserDashboard();
 
       } else {
         if (liff.isInClient()) {
@@ -451,7 +451,7 @@
     } catch (e) { 
       console.warn("LIFF init timed out or failed:", e);
     } finally {
-      if (statusElem) statusElem.style.display = "none";
+      if (statusElem && statusElem.dataset.dashboardError !== "true") statusElem.style.display = "none";
     }
   }
 
@@ -465,7 +465,7 @@
 
   async function loadUserDashboard() {
     try {
-      const result = await apiPost("getDashboard");
+      const result = await apiPost("getDashboard");       if (result.status !== "found" && result.status !== "not_found") throw new Error(result.message || "โหลดข้อมูลสมาชิกไม่สำเร็จ");       if (result.status === "found" && (!result.data || typeof result.data !== "object")) throw new Error("ข้อมูลสมาชิกจาก Backend ไม่ถูกต้อง");
 
       if (result.status === "not_found") {
         hideAllSections();
@@ -500,7 +500,7 @@
 
         checkActiveDeposit(result.pendingDeposit);
       }
-    } catch (err) { console.error("Profile load err", err); }
+    } catch (err) {       console.error("Profile load err", err);       const statusElem = document.getElementById("status");       statusElem.dataset.dashboardError = "true";       statusElem.innerText = "⚠️ โหลดข้อมูลบัญชีไม่สำเร็จ กรุณาโหลดหน้าใหม่อีกครั้ง";       statusElem.style.display = "block";     }
   }
 
   function checkActiveDeposit(result) {
