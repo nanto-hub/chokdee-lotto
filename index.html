@@ -119,7 +119,9 @@
   <div class="header-bar">
     <div class="header-start">
       <i class="fa-solid fa-gear setting-btn" id="gearIcon" onclick="toggleDropdown(event)"></i>
-      <div class="store-status-container"><span id="storeStatusBadge" class="store-badge">...</span></div>
+      <div class="store-status-container">
+        <span id="storeStatusBadge" class="store-badge">...</span>
+      </div>
     </div>
     <span id="titleText">🎫 โชคดีล็อตเตอรี่</span>
     <button type="button" id="headerWalletBalance" class="header-wallet" onclick="openWalletSection()">💰 <span id="headerWalletAmount">-</span></button>
@@ -156,9 +158,12 @@
         <div style="color: #ff9800;">🎁 โบนัสแนะนำเพื่อน</div>
         <div style="font-weight: bold; color: #ff9800;"><span id="affBalanceText">0.00</span> บ.</div>
       </div>
-      <div class="wallet-balance"><div style="font-size: 14px;">ยอดรวมซื้อหวยได้:</div><div><span id="walletBalanceText">0.00</span> บาท</div></div>
+      <div class="wallet-balance">
+        <div style="font-size: 14px;">ยอดรวมซื้อหวยได้:</div>
+        <div><span id="walletBalanceText">0.00</span> บาท</div>
+      </div>
       <div class="wallet-actions">
-        <button class="btn-wallet btn-deposit" onclick="openDepositView()"><i class="fa-solid fa-circle-plus"></i> เติมเงิน</button>
+        <button class="btn-wallet btn-deposit"  onclick="openDepositView()"><i class="fa-solid fa-circle-plus"></i> เติมเงิน</button>
         <button class="btn-wallet btn-withdraw" onclick="openWithdrawView()"><i class="fa-solid fa-money-bill-transfer"></i> แจ้งถอน</button>
       </div>
       <button type="button" class="btn-back" onclick="closeWalletSection()">⬅️ กลับหน้าแผงหวย</button>
@@ -287,7 +292,7 @@
     </div>
   </div>
 
-<script src="config.js?v=20261006-1"></script>
+<script src="config.js"></script>
 <script>
   const LINE_OA_CHAT_URL = "https://line.me/R/ti/p/@908iwiki"; 
 
@@ -403,27 +408,42 @@
     document.getElementById("myTicketsSection").style.display = "none";
   }
 
-  async function apiPost(action, fields = {}, retryAttempt = 0) {
+  async function apiPost(action, fields = {}) {
     if (typeof liff === "undefined" || !liff.isLoggedIn()) throw new Error("กรุณาเข้าสู่ระบบ LINE");
     const idToken = liff.getIDToken();
     if (!idToken) throw new Error("ไม่พบ LINE ID token");
-    let response;
-    try {
-      response = await fetch(BACKEND_URL, {
-        method: "POST",
-        body: JSON.stringify({ action, idToken, ...fields })
-      });
-    } catch (error) {
-      if (retryAttempt < 2 && ["getDashboard", "getProfile", "getMyTickets", "checkPendingDeposit", "search"].includes(action)) {           await new Promise(resolve => setTimeout(resolve, 300 * (retryAttempt + 1)));           return apiPost(action, fields, retryAttempt + 1);         }         throw new Error(`เรียก Backend ไม่สำเร็จ (${error.message}) ตรวจ BACKEND_URL และสิทธิ์การเข้าถึง Web App`);
+    const retryableReadActions = new Set(["getDashboard", "getProfile", "getMyTickets", "checkPendingDeposit", "search"]);
+    const maxAttempts = retryableReadActions.has(action) ? 3 : 1;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let response;
+      try {
+        response = await fetch(BACKEND_URL, {
+          method: "POST",
+          body: JSON.stringify({ action, idToken, ...fields })
+        });
+      } catch (error) {
+        if (attempt + 1 < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
+          continue;
+        }
+        throw new Error(`เรียก Backend ไม่สำเร็จ (${error.message}) ตรวจ BACKEND_URL และสิทธิ์การเข้าถึง Web App`);
+      }
+
+      const responseText = await response.text();
+      try {
+        return JSON.parse(responseText);
+      } catch (error) {
+        const responseSummary = responseText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+        if (response.status === 404 && attempt + 1 < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
+          continue;
+        }
+        throw new Error(`Backend ตอบกลับไม่ใช่ JSON (HTTP ${response.status})${responseSummary ? `: ${responseSummary}` : ""}`);
+      }
     }
 
-    const responseText = await response.text();
-    try {
-      return JSON.parse(responseText);
-    } catch (error) {
-      if (response.status === 404 && retryAttempt < 2 && ["getDashboard", "getProfile", "getMyTickets", "checkPendingDeposit", "search"].includes(action)) {         await new Promise(resolve => setTimeout(resolve, 300 * (retryAttempt + 1)));         return apiPost(action, fields, retryAttempt + 1);       }       const responseSummary = responseText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
-      throw new Error(`Backend ตอบกลับไม่ใช่ JSON (HTTP ${response.status})${responseSummary ? `: ${responseSummary}` : ""}`);
-    }
+    throw new Error("เรียก Backend ไม่สำเร็จ กรุณาลองใหม่");
   }
 
   async function startApp() {
@@ -431,8 +451,8 @@
     const lineOaBtn = document.getElementById("lineOaBtn");
     if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
     document.getElementById("searchAreaTop").style.display = "block";
-     
-    await initLiffAndWait();     doSearch();
+    await initLiffAndWait();
+    doSearch();
 
     if (statusElem && statusElem.dataset.dashboardError !== "true") statusElem.style.display = "none";
   }
@@ -466,7 +486,6 @@
         document.getElementById("menuTickets").style.display = "block";
         
         await loadUserDashboard();
-
       } else {
         if (liff.isInClient()) {
           liff.login();
@@ -476,9 +495,9 @@
         document.getElementById("menuLogout").style.display = "none";
         document.getElementById("menuWallet").style.display = "none";
         document.getElementById("menuProfile").style.display = "none";
+        document.getElementById("menuTickets").style.display = "none";
         document.getElementById("headerWalletBalance").style.display = "none";
         document.getElementById("referralLinkSection").style.display = "none";
-        document.getElementById("menuTickets").style.display = "none";
         document.getElementById("walletSummaryCard").style.display = "none";
       }
     } catch (e) { 
@@ -499,12 +518,14 @@
 
   async function loadUserDashboard() {
     try {
-      const result = await apiPost("getDashboard");       if (result.status !== "found" && result.status !== "not_found") throw new Error(result.message || "โหลดข้อมูลสมาชิกไม่สำเร็จ");       if (result.status === "found" && (!result.data || typeof result.data !== "object")) throw new Error("ข้อมูลสมาชิกจาก Backend ไม่ถูกต้อง");
+      const result = await apiPost("getDashboard");
 
       if (result.status === "not_found") {
+        delete document.getElementById("status").dataset.dashboardError;
         hideAllSections();
         document.getElementById("profileSection").style.display = "block";
-      } else {
+      } else if (result.status === "found" && result.data) {
+        delete document.getElementById("status").dataset.dashboardError;
         let mBal = parseFloat(result.data.balance) || 0;
         let aBal = parseFloat(result.data.affBalance) || 0;
         document.getElementById("status").innerText = "👤 คุณ: " + escapeHtml(result.data.fullName);
@@ -538,8 +559,17 @@
         document.getElementById("searchAreaTop").style.display = "block";
 
         checkActiveDeposit(result.pendingDeposit);
+      } else {
+        throw new Error(result.message || "ข้อมูลสมาชิกจาก Backend ไม่ถูกต้อง");
       }
-    } catch (err) {       console.error("Profile load err", err);       const statusElem = document.getElementById("status");       statusElem.dataset.dashboardError = "true";       statusElem.innerText = "⚠️ โหลดข้อมูลบัญชีไม่สำเร็จ กรุณาโหลดหน้าใหม่อีกครั้ง";       statusElem.style.display = "block";       if (/LINE|token|เข้าสู่ระบบ LINE|ยืนยันตัวตน/i.test(String(err && err.message || ""))) showLineFallbackNotice();     }
+    } catch (err) {
+      console.error("Profile load err", err);
+      const statusElem = document.getElementById("status");
+      statusElem.dataset.dashboardError = "true";
+      statusElem.innerText = "⚠️ โหลดข้อมูลบัญชีไม่สำเร็จ กรุณาโหลดหน้าใหม่อีกครั้ง";
+      statusElem.style.display = "block";
+      if (/LINE|token|เข้าสู่ระบบ LINE|ยืนยันตัวตน/i.test(String(err && err.message || ""))) showLineFallbackNotice();
+    }
   }
 
   function checkActiveDeposit(result) {
@@ -944,15 +974,11 @@
     const type = document.getElementById("shippingType").value;
 
     let ticketKeys = cart.map(item => item.uniqueKey);
-    let mBal = parseFloat(document.getElementById("mainBalanceText").innerText) || 0;
-    let aBal = parseFloat(document.getElementById("affBalanceText").innerText) || 0;
-    let totalWallet = mBal + aBal;
-    let totalCost = parseFloat(document.getElementById("estPrice").innerText) || 0;
     const btnOrder = document.getElementById("btnSubmitOrder");
-
-        if (btnOrder.disabled) return;
+    if (btnOrder.disabled) return;
     btnOrder.disabled = true;
     btnOrder.innerText = "⏳ กำลังตรวจสอบยอดเงินจริง...";
+
     let dashboard;
     try {
       dashboard = await apiPost("getDashboard");
@@ -969,27 +995,25 @@
       btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
       return;
     }
-    const refreshedMainBalance = Number(dashboard.data.balance);
-    const refreshedAffiliateBalance = Number(dashboard.data.affBalance);
-    if (!Number.isFinite(refreshedMainBalance) || !Number.isFinite(refreshedAffiliateBalance)) {
+
+    const mBal = Number(dashboard.data.balance);
+    const aBal = Number(dashboard.data.affBalance);
+    if (!Number.isFinite(mBal) || !Number.isFinite(aBal)) {
       alert("อ่านยอดเงินล่าสุดไม่สำเร็จ กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง");
       btnOrder.disabled = false;
       btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
       return;
     }
-    mBal = refreshedMainBalance;
-    aBal = refreshedAffiliateBalance;
-    totalWallet = mBal + aBal;
+    const totalWallet = mBal + aBal;
     document.getElementById("mainBalanceText").innerText = mBal.toFixed(2);
     document.getElementById("affBalanceText").innerText = aBal.toFixed(2);
     document.getElementById("walletBalanceText").innerText = totalWallet.toFixed(2);
     updateHeaderWalletBalance(totalWallet);
-    btnOrder.disabled = false;
-    btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
+    let totalCost = parseFloat(document.getElementById("estPrice").innerText) || 0;
+
     if (totalWallet < totalCost) {
       clearInterval(cartExpireTimerInterval);
       btnOrder.innerText = "⏳ กำลังจองสลาก...";
-      btnOrder.disabled = true;
 
       try {
         const result = await apiPost("reserveTickets", { data: { tickets: ticketKeys } });
@@ -1000,7 +1024,8 @@
           openDepositView();
         } else { alert(result.message); }
       } catch(e) {
-        alert("เกิดข้อผิดพลาดในการจองสลาก กรุณาลองใหม่");
+        console.error("Ticket reservation failed:", e);
+        alert(e.message || "เกิดข้อผิดพลาดในการจองสลาก กรุณาลองใหม่");
       } finally {
         btnOrder.innerText = "🛒 ยืนยันการสั่งซื้อ";
         btnOrder.disabled = false;
@@ -1145,7 +1170,10 @@
       groupedMyTickets[key].ticketRows.push(t);
     });
 
+    const isPhysicalDelivery = ticket =>
+      ["รับใบจริง", "ส่งใบจริง"].includes(String(ticket.shippingType || "").trim());
     const eligiblePrizeTickets = tickets.filter(ticket =>
+      !isPhysicalDelivery(ticket) &&
       !ticket.prizeClaimStatus && !ticket.prizeTicketReturnStatus &&
       String(ticket.result || "").includes("🎉 ถูก")
     );
@@ -1182,6 +1210,9 @@
       const pendingClaims = group.ticketRows.filter(ticket => ticket.prizeClaimStatus);
       const ticketReturnStatuses = [...new Set(group.ticketRows
         .map(ticket => ticket.prizeTicketReturnStatus).filter(Boolean))];
+      const winningTickets = group.ticketRows.filter(ticket =>
+        String(ticket.result || "").includes("🎉 ถูก")
+      );
       const unclaimedWinningTickets = group.ticketRows.filter(ticket =>
         !ticket.prizeClaimStatus && String(ticket.result || "").includes("🎉 ถูก")
       );
@@ -1190,7 +1221,9 @@
         Number.isFinite(Number(ticket.prizeAmount)) && Number(ticket.prizeAmount) > 0
       );
       let prizeClaimHtml = "";
-      if (pendingClaims.length > 0) {
+      if (["รับใบจริง", "ส่งใบจริง"].includes(String(group.shippingType || "").trim()) && winningTickets.length > 0) {
+        prizeClaimHtml = `<div class="prize-claim-status">คุณเลือกรับสลากจริงแล้ว กรุณานำสลากไปขึ้นเงินรางวัลด้วยตนเอง</div>`;
+      } else if (pendingClaims.length > 0) {
         const statuses = [...new Set(pendingClaims.map(ticket => ticket.prizeClaimStatus))];
         prizeClaimHtml = `<div class="prize-claim-status">${escapeHtml(statuses.join(" / "))}</div>`;
       } else if (ticketReturnStatuses.length > 0) {
