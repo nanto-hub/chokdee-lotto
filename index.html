@@ -523,12 +523,22 @@
     } catch (e) { 
       console.warn("LIFF init timed out or failed:", e);
       showLineFallbackNotice();
+      const loginLink = document.getElementById("menuLogin");
+      if (loginLink) loginLink.style.display = "block";
     } finally {
       if (statusElem && statusElem.dataset.dashboardError !== "true") statusElem.style.display = "none";
     }
   }
 
-  function liffLogin() { liff.login(); }
+  function liffLogin() {
+    const p = new URLSearchParams(window.location.search);
+    if (typeof liff === "undefined" || ((p.has("code") || p.has("state")) && !liff.isLoggedIn())) {
+      // โค้ดล็อกอินเก่าใช้ซ้ำไม่ได้ ให้ล้างพารามิเตอร์แล้วเริ่มใหม่
+      location.replace(location.origin + location.pathname);
+      return;
+    }
+    liff.login();
+  }
   function liffLogout() {
     if (confirm("คุณต้องการลงชื่อออกจากระบบแผงหวยใช่หรือไม่?")) {
       try { if (liff.isLoggedIn()) liff.logout(); } catch(e){}
