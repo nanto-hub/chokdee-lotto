@@ -688,7 +688,7 @@
     list.innerHTML = transactions.map(transaction => {
       const amount = Number(transaction.amount) || 0;
       const isCredit = transaction.type === "ฝากเงิน" ||
-        (transaction.type === "ขึ้นเงินรางวัล" && transaction.method === "วอเลท");
+        transaction.type === "ขึ้นเงินรางวัล";
       const amountText = `${isCredit ? "+" : "-"}${Math.abs(amount).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`;
       return `<div class="wallet-activity-row">
         <div><div>${escapeHtml(transaction.type)}</div><div class="wallet-activity-meta">${escapeHtml(transaction.date)} · ${escapeHtml(transaction.status)}</div></div>
