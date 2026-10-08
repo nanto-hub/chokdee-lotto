@@ -40,6 +40,15 @@
     .btn-wallet { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; color: white; }
     .btn-deposit  { background-color: #28a745; }
     .btn-withdraw { background-color: #0275d8; }
+    .wallet-activity { margin-top: 14px; padding-top: 12px; border-top: 1px solid #555; }
+    .wallet-activity-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.14); font-size: 13px; }
+    .wallet-activity-meta { color: #ccc; font-size: 11px; margin-top: 3px; }
+    .wallet-activity-amount { flex: 0 0 auto; font-weight: bold; text-align: right; }
+    .ticket-history { margin: 16px 0; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+    .ticket-history summary { padding: 12px; background: #f8f9fa; color: #495057; font-weight: bold; cursor: pointer; }
+    .ticket-history-draw { padding: 10px 12px; border-top: 1px solid #eee; }
+    .ticket-number-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+    .ticket-number-pill { padding: 5px 9px; background: #fff3cd; border: 1px solid #ffe69c; border-radius: 16px; color: #664d03; font-weight: bold; font-variant-numeric: tabular-nums; }
 
     .ticket-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .ticket-card { position: relative; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #eee; }
@@ -152,19 +161,27 @@
       <div style="font-size: 13px; color: #ddd; margin-bottom: 5px;">💰 กระเป๋าเงินของคุณ</div>
       <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #555; padding-bottom: 8px; margin-bottom: 8px;">
         <div>💵 เงินหลัก (ถอนได้)</div>
-        <div style="font-weight: bold;"><span id="mainBalanceText">0.00</span> บ.</div>
+        <div style="font-weight: bold;"><span id="mainBalanceText">—</span> บ.</div>
       </div>
       <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #555; padding-bottom: 8px; margin-bottom: 12px;">
         <div style="color: #ff9800;">🎁 โบนัสแนะนำเพื่อน</div>
-        <div style="font-weight: bold; color: #ff9800;"><span id="affBalanceText">0.00</span> บ.</div>
+        <div style="font-weight: bold; color: #ff9800;"><span id="affBalanceText">—</span> บ.</div>
       </div>
       <div class="wallet-balance">
         <div style="font-size: 14px;">ยอดรวมซื้อหวยได้:</div>
-        <div><span id="walletBalanceText">0.00</span> บาท</div>
+        <div><span id="walletBalanceText">—</span> บาท</div>
       </div>
       <div class="wallet-actions">
         <button class="btn-wallet btn-deposit"  onclick="openDepositView()"><i class="fa-solid fa-circle-plus"></i> เติมเงิน</button>
         <button class="btn-wallet btn-withdraw" onclick="openWithdrawView()"><i class="fa-solid fa-money-bill-transfer"></i> แจ้งถอน</button>
+      </div>
+      <div class="wallet-activity">
+        <div style="font-weight:bold; margin-bottom:6px;">สถานะการถอนเงินล่าสุด</div>
+        <div id="withdrawalStatusText" aria-live="polite" style="color:#eee; font-size:13px;">กำลังโหลดสถานะ...</div>
+        <button type="button" id="walletHistoryToggle" class="btn-back" aria-expanded="false" onclick="toggleWalletHistory()">📜 แสดงประวัติเดินบัญชี</button>
+        <div id="walletHistoryPanel" style="display:none; margin-top:8px;">
+          <div id="walletHistoryList" aria-live="polite"></div>
+        </div>
       </div>
       <button type="button" class="btn-back" onclick="closeWalletSection()">⬅️ กลับหน้าแผงหวย</button>
     </div>
@@ -266,6 +283,7 @@
         <span id="myTicketCountBadge" style="background: #d9534f; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">0 ใบ</span>
       </div>
       <div id="myTicketsList"></div>
+      <div id="myTicketHistory"></div>
       <button type="button" class="btn-back" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
       <div id="prizeClaimModal" class="claim-modal" role="dialog" aria-modal="true" aria-labelledby="prizeClaimTitle" hidden>
         <div class="claim-modal-card">
@@ -300,6 +318,8 @@
   let rawTicketsData = [];
   let countdownInterval;
   let storeConfig = null;
+  let walletActivityData = null;
+  let walletActivityRequest = null;
   
   let cartExpireTimerInterval = null;
   let cartExpirationTime = null;
@@ -565,6 +585,11 @@
     } catch (err) {
       console.error("Profile load err", err);
       const statusElem = document.getElementById("status");
+      document.getElementById("mainBalanceText").innerText = "—";
+      document.getElementById("affBalanceText").innerText = "—";
+      document.getElementById("walletBalanceText").innerText = "—";
+      document.getElementById("headerWalletAmount").innerText = "—";
+      document.getElementById("headerWalletBalance").style.display = "none";
       statusElem.dataset.dashboardError = "true";
       statusElem.innerText = "⚠️ โหลดข้อมูลบัญชีไม่สำเร็จ กรุณาโหลดหน้าใหม่อีกครั้ง";
       statusElem.style.display = "block";
@@ -608,6 +633,68 @@
     hideAllSections();
     document.getElementById("walletSummaryCard").style.display = "block";
     document.getElementById("myDropdown").style.display = "none";
+    walletActivityData = null;
+    void loadWalletActivity();
+  }
+
+  async function loadWalletActivity() {
+    if (walletActivityRequest) return walletActivityRequest;
+    const statusElement = document.getElementById("withdrawalStatusText");
+    walletActivityRequest = (async () => {
+      try {
+        const result = await apiPost("getWalletActivity");
+        if (result.status !== "success") throw new Error(result.message || "โหลดประวัติกระเป๋าเงินไม่สำเร็จ");
+        walletActivityData = result;
+        const latest = result.latestWithdrawal;
+        statusElement.innerText = latest
+          ? `${latest.status} · ${Number(latest.amount).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท · ${latest.date}`
+          : "ยังไม่มีรายการถอนเงิน";
+        if (document.getElementById("walletHistoryPanel").style.display !== "none")
+          renderWalletHistory(result.transactions || []);
+      } catch (error) {
+        statusElement.innerText = "โหลดสถานะการถอนเงินไม่สำเร็จ กรุณาลองใหม่";
+        if (document.getElementById("walletHistoryPanel").style.display !== "none")
+          document.getElementById("walletHistoryList").innerHTML =
+            `<div style="padding:10px 0; color:#ffd2d2;">${escapeHtml(error.message || "โหลดประวัติไม่สำเร็จ")}</div>`;
+      } finally {
+        walletActivityRequest = null;
+      }
+    })();
+    return walletActivityRequest;
+  }
+
+  function toggleWalletHistory() {
+    const panel = document.getElementById("walletHistoryPanel");
+    const toggle = document.getElementById("walletHistoryToggle");
+    const isOpening = panel.style.display === "none";
+    panel.style.display = isOpening ? "block" : "none";
+    toggle.setAttribute("aria-expanded", String(isOpening));
+    toggle.innerText = isOpening ? "📜 ซ่อนประวัติเดินบัญชี" : "📜 แสดงประวัติเดินบัญชี";
+    if (!isOpening) return;
+    if (walletActivityData) renderWalletHistory(walletActivityData.transactions || []);
+    else {
+      document.getElementById("walletHistoryList").innerHTML =
+        "<div style='padding:10px 0; color:#eee;'>กำลังโหลดประวัติ...</div>";
+      void loadWalletActivity();
+    }
+  }
+
+  function renderWalletHistory(transactions) {
+    const list = document.getElementById("walletHistoryList");
+    if (!transactions.length) {
+      list.innerHTML = "<div style='padding:10px 0; color:#ccc;'>ยังไม่มีประวัติฝากเงิน ถอนเงิน หรือขึ้นเงินรางวัล</div>";
+      return;
+    }
+    list.innerHTML = transactions.map(transaction => {
+      const amount = Number(transaction.amount) || 0;
+      const isCredit = transaction.type === "ฝากเงิน" ||
+        (transaction.type === "ขึ้นเงินรางวัล" && transaction.method === "วอเลท");
+      const amountText = `${isCredit ? "+" : "-"}${Math.abs(amount).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`;
+      return `<div class="wallet-activity-row">
+        <div><div>${escapeHtml(transaction.type)}</div><div class="wallet-activity-meta">${escapeHtml(transaction.date)} · ${escapeHtml(transaction.status)}</div></div>
+        <div class="wallet-activity-amount" style="color:${isCredit ? "#9be7a5" : "#ffd2d2"};">${amountText}</div>
+      </div>`;
+    }).join("");
   }
 
   function closeWalletSection() {
@@ -641,9 +728,10 @@
     
     try {
       const result = await apiPost("getMyTickets");
-      renderMyTickets(result.tickets || []);
+      renderMyTickets(result.tickets || [], result.history || []);
     } catch (e) { 
       document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; color:red;'>❌ โหลดข้อมูลสลากไม่สำเร็จ</p>"; 
+      document.getElementById("myTicketHistory").innerHTML = "";
     }
   }
   function closeMyTicketsSection() { 
@@ -679,16 +767,60 @@
     const amount = document.getElementById("withdrawInputAmount").value;
     if (!amount || amount < 50) { alert("กรุณาระบุยอดแจ้งถอนขั้นต่ำ 50 บาทครับ"); return; }
 
+    const pendingKey = "pendingWithdrawalRequest";
+    let pendingRequest;
+    try {
+      pendingRequest = JSON.parse(sessionStorage.getItem(pendingKey) || "null");
+      if (pendingRequest && Number(pendingRequest.amount) !== Number(amount)) {
+        alert("มีคำขอถอนก่อนหน้าที่ยังไม่ยืนยันผล กรุณาส่งยอดเดิมอีกครั้งเพื่อป้องกันการถอนซ้ำ");
+        return;
+      }
+      if (!pendingRequest) {
+        if (!window.crypto || typeof window.crypto.randomUUID !== "function") {
+          alert("เบราว์เซอร์นี้ไม่รองรับการยืนยันคำขอถอนอย่างปลอดภัย กรุณาเปิดหน้าเว็บใหม่ใน LINE");
+          return;
+        }
+        pendingRequest = { amount: Number(amount), requestId: window.crypto.randomUUID() };
+        sessionStorage.setItem(pendingKey, JSON.stringify(pendingRequest));
+      }
+    } catch (error) {
+      alert("บันทึกสถานะคำขอถอนไม่สำเร็จ กรุณาเปิดหน้าเว็บใหม่แล้วลองอีกครั้ง");
+      return;
+    }
+
     const btn = document.getElementById("btnWithdrawSubmit");
     btn.disabled = true;
     btn.innerText = "⏳ กำลังส่งคำขอ...";
 
     try {
-      const result = await apiPost("requestWithdrawal", { amount });
-      alert(result.message);
-      if (result.status === "success") location.reload();
+      const result = await apiPost("requestWithdrawal", {
+        amount,
+        requestId: pendingRequest.requestId
+      });
+      if (result.status === "success") {
+        sessionStorage.removeItem(pendingKey);
+      } else if (result.status === "error" && !result.retryable) {
+        sessionStorage.removeItem(pendingKey);
+      }
+      if (result.status === "success" && result.balance !== undefined && Number.isFinite(Number(result.balance))) {
+        const mainBalance = Number(result.balance);
+        const affiliateBalance = result.affBalance !== undefined
+          ? Number(result.affBalance) || 0
+          : Number(document.getElementById("affBalanceText").innerText) || 0;
+        document.getElementById("mainBalanceText").innerText = mainBalance.toFixed(2);
+        document.getElementById("affBalanceText").innerText = affiliateBalance.toFixed(2);
+        document.getElementById("walletBalanceText").innerText = (mainBalance + affiliateBalance).toFixed(2);
+        updateHeaderWalletBalance(mainBalance + affiliateBalance);
+        document.getElementById("headerWalletBalance").style.display = "inline-flex";
+        hideAllSections();
+        document.getElementById("walletSummaryCard").style.display = "block";
+        document.getElementById("myDropdown").style.display = "none";
+        walletActivityData = null;
+        void loadWalletActivity();
+      }
+      alert(result.message || "ระบบไม่ได้ยืนยันผลคำขอถอน กรุณาส่งยอดเดิมอีกครั้ง");
     } catch(e) {
-      alert("เชื่อมต่อขัดข้อง กรุณาลองใหม่อีกครั้ง");
+      alert("ยังยืนยันผลคำขอถอนไม่ได้ กรุณาส่งยอดเดิมอีกครั้ง ระบบจะตรวจรายการเดิมก่อนหักเงิน");
     } finally {
       btn.disabled = false;
       btn.innerText = "💸 ยืนยันการแจ้งถอนเงิน";
@@ -1149,18 +1281,31 @@
     }
   }
 
-  function renderMyTickets(tickets) {
+  function renderMyTickets(tickets, history = []) {
+    tickets = Array.isArray(tickets) ? tickets : [];
+    history = Array.isArray(history) ? history : [];
     const countBadge = document.getElementById("myTicketCountBadge");
-    if (countBadge) countBadge.innerText = tickets.length + " ใบ";
+    const allTicketKeys = new Set(tickets.map(ticket => ticket.ticketKey));
+    history.forEach(draw => (Array.isArray(draw.tickets) ? draw.tickets : []).forEach(ticket =>
+      allTicketKeys.add(`${ticket.ticketId}_${draw.drawDate}_${ticket.setNo}`)
+    ));
+    if (countBadge) countBadge.innerText = allTicketKeys.size + " ใบ";
 
-    if (!tickets || tickets.length === 0) {
+    if (tickets.length === 0 && history.length === 0) {
       document.getElementById("myTicketsList").innerHTML = "<div style='text-align:center; padding: 30px; color:#999;'><i class='fa-solid fa-ticket-simple' style='font-size: 40px; margin-bottom: 10px;'></i><br>คุณยังไม่มีประวัติซื้อสลากครับ</div>";
+      document.getElementById("myTicketHistory").innerHTML = "";
       return;
     }
 
+    const archivedTicketKeys = new Set(history.flatMap(draw =>
+      (Array.isArray(draw.tickets) ? draw.tickets : []).map(ticket =>
+        `${ticket.ticketId}_${draw.drawDate}_${ticket.setNo}`
+      )
+    ));
+    const currentTickets = tickets.filter(ticket => !archivedTicketKeys.has(ticket.ticketKey));
     let html = "";
     let groupedMyTickets = {};
-    tickets.forEach(t => {
+    currentTickets.forEach(t => {
       let key = t.ticketId + "_" + t.drawDate;
       if (!groupedMyTickets[key]) {
         groupedMyTickets[key] = { ticketId: t.ticketId, drawDate: t.drawDate, result: t.result, shippingType: t.shippingType, sets: [], imageUrls: [], ticketRows: [] };
@@ -1271,7 +1416,20 @@
       html += `<div class="my-ticket-card">${imageAreaHtml}<div class="my-ticket-details"><div class="my-ticket-num">${escapeHtml(group.ticketId)}</div><div>งวด: ${escapeHtml(group.drawDate)} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${escapeHtml(group.sets[0])}`}</div><div style="margin: 6px 0;"><span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid ${badgeIcon}"></i> ${escapeHtml(group.shippingType)}</span></div><div style="font-weight:bold;color:${colorStyle};">ผล: ${escapeHtml(group.result)}</div>${prizeClaimHtml}</div></div>`;
     });
     
-    document.getElementById("myTicketsList").innerHTML = html;
+    document.getElementById("myTicketsList").innerHTML = html ||
+      "<div style='text-align:center; padding: 15px; color:#999;'>ไม่มีสลากในงวดปัจจุบัน</div>";
+    const historyHtml = history.length
+      ? `<details class="ticket-history">
+          <summary>🗓️ ประวัติการซื้อสลากงวดก่อน (${history.reduce((count, draw) => count + draw.tickets.length, 0)} ใบ)</summary>
+          ${history.map(draw => `<div class="ticket-history-draw">
+            <div style="font-weight:bold;">งวด ${escapeHtml(draw.drawDate)} · ${draw.tickets.length} ใบ</div>
+            <div class="ticket-number-list">${draw.tickets.map(ticket =>
+              `<span class="ticket-number-pill">${escapeHtml(ticket.ticketId)}${ticket.setNo ? ` ชุด ${escapeHtml(ticket.setNo)}` : ""}</span>`
+            ).join("")}</div>
+          </div>`).join("")}
+        </details>`
+      : "";
+    document.getElementById("myTicketHistory").innerHTML = historyHtml;
   }
 
   function openPrizeClaimModal(ticketKeys, grossAmount, taxAmount, netAmount, taxRate) {
