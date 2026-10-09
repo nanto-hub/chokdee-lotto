@@ -250,7 +250,10 @@
         <div class="row"><span>ที่อยู่: ${esc(o.address || "-")}</span></div>
         <div class="muted">สลาก: ${esc(o.tickets.join(", "))}</div>
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${label("return", i)}
-          ${o.status.indexOf("รอ") === 0 ? `<button class="btn" onclick="markReturn(this,${i})">✅ ${o.method === "ส่งไปรษณีย์" ? "จัดส่งแล้ว" : "ลูกค้ารับแล้ว"}</button>` : ""}
+          ${o.status.indexOf("รอ") === 0 ? (o.method === "ส่งไปรษณีย์"
+            ? `<input id="rems_${i}" placeholder="หมายเลข EMS" style="max-width:200px" oninput="$('remsBtn_${i}').disabled=!this.value.trim()"><button class="btn" id="remsBtn_${i}" disabled onclick="markReturn(this,${i})">✅ ดำเนินการเรียบร้อย</button>`
+            : `<button class="btn" onclick="markReturn(this,${i})">✅ ลูกค้ารับแล้ว</button>`)
+            : (o.ems ? `<span class="badge">จัดส่งแล้ว · EMS ${esc(o.ems)}</span>` : "")}
         </div></div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
       box.innerHTML = html;
     } catch (e) { box.innerHTML = ""; setMsg(e.message); }
@@ -286,9 +289,14 @@
     const item = shippingData.prizeReturns[index];
     const requestId = item.requestId;
     const newStatus = item.method === "ส่งไปรษณีย์" ? "จัดส่งแล้ว" : "รับสลากแล้ว";
-    if (!confirm("เปลี่ยนสถานะเป็น \"" + newStatus + "\" ?")) return;
+    let ems = "";
+    if (newStatus === "จัดส่งแล้ว") {
+      ems = ($("rems_" + index).value || "").trim();
+      if (!ems) return alert("กรุณากรอกหมายเลข EMS ก่อน");
+    }
+    if (!confirm("เปลี่ยนสถานะเป็น \"" + newStatus + "\"" + (ems ? " (EMS: " + ems + ")" : "") + " ?")) return;
     btn.disabled = true;
-    try { const r = await api("adminSetReturnStatus", { requestId, newStatus }); setMsg(r.message, r.status === "success"); await loadShipping(); }
+    try { const r = await api("adminSetReturnStatus", { requestId, newStatus, ems }); setMsg(r.message, r.status === "success"); await loadShipping(); }
     catch (e) { setMsg(e.message); btn.disabled = false; }
   }
 

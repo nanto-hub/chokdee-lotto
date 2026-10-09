@@ -1408,6 +1408,16 @@
         ticket.prizeAmount !== null && ticket.prizeAmount !== "" &&
         Number.isFinite(Number(ticket.prizeAmount)) && Number(ticket.prizeAmount) > 0
       );
+      let shipInfoHtml = "";
+      if (group.shippingType === "รับใบจริง") {
+        const shipped = group.ticketRows.filter(t => t.shipStatus === "จัดส่งแล้ว");
+        const emsList = [...new Set(shipped.map(t => t.shipEms).filter(Boolean))];
+        shipInfoHtml = shipped.length === group.ticketRows.length
+          ? `<div class="prize-claim-status">📦 จัดส่งแล้ว · EMS: ${escapeHtml(emsList.join(", ") || "-")}</div>`
+          : `<div class="prize-claim-status">📦 รอการจัดส่ง${emsList.length ? ` (บางใบจัดส่งแล้ว EMS: ${escapeHtml(emsList.join(", "))})` : ""}</div>`;
+      }
+      const returnEmsList = [...new Set(group.ticketRows.map(t => t.prizeTicketReturnEms).filter(Boolean))];
+      if (returnEmsList.length) shipInfoHtml += `<div class="prize-claim-status">📦 EMS สลากที่ถูกรางวัล: ${escapeHtml(returnEmsList.join(", "))}</div>`;
       let prizeClaimHtml = "";
       if (["รับใบจริง", "ส่งใบจริง"].includes(String(group.shippingType || "").trim()) && winningTickets.length > 0) {
         prizeClaimHtml = `<div class="prize-claim-status">คุณเลือกรับสลากจริงแล้ว กรุณานำสลากไปขึ้นเงินรางวัลด้วยตนเอง</div>`;
@@ -1456,7 +1466,7 @@
           </div>`;
       }
 
-      html += `<div class="my-ticket-card">${imageAreaHtml}<div class="my-ticket-details"><div class="my-ticket-num">${escapeHtml(group.ticketId)}</div><div>งวด: ${escapeHtml(group.drawDate)} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${escapeHtml(group.sets[0])}`}</div><div style="margin: 6px 0;"><span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid ${badgeIcon}"></i> ${escapeHtml(group.shippingType)}</span></div><div style="font-weight:bold;color:${colorStyle};">ผล: ${escapeHtml(group.result)}</div>${prizeClaimHtml}</div></div>`;
+      html += `<div class="my-ticket-card">${imageAreaHtml}<div class="my-ticket-details"><div class="my-ticket-num">${escapeHtml(group.ticketId)}</div><div>งวด: ${escapeHtml(group.drawDate)} ${qty >= 2 ? `<b>[ชุด ${qty} ใบ]</b>` : `ชุด ${escapeHtml(group.sets[0])}`}</div><div style="margin: 6px 0;"><span style="background-color: ${badgeBgColor}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid ${badgeIcon}"></i> ${escapeHtml(group.shippingType)}</span></div><div style="font-weight:bold;color:${colorStyle};">ผล: ${escapeHtml(group.result)}</div>${prizeClaimHtml}${shipInfoHtml}</div></div>`;
     });
     
     document.getElementById("myTicketsList").innerHTML = html ||
