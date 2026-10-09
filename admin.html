@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>แอดมิน - โชคดีล็อตเตอรี่</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Sarabun", "Tahoma", sans-serif; margin: 0; background: #f4f6f8; color: #222; }
+  header { background: #e84a4a; color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 18px; margin: 0; }
+  main { max-width: 1000px; margin: 0 auto; padding: 12px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tabs button { flex: 1; padding: 10px; border: 0; border-radius: 8px; background: #dde3e8; font-size: 15px; cursor: pointer; }
+  .tabs button.active { background: #e84a4a; color: #fff; }
+  .card { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .card h3 { margin: 0 0 8px; font-size: 16px; }
+  .row { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 4px 0; font-size: 14px; }
+  .muted { color: #777; font-size: 13px; }
+  .amount { font-weight: bold; color: #c0392b; font-size: 18px; }
+  .btn { padding: 8px 14px; border: 0; border-radius: 6px; cursor: pointer; font-size: 14px; color: #fff; background: #2e8b57; }
+  .btn.red { background: #c0392b; } .btn.gray { background: #6c757d; } .btn.blue { background: #2f6fd1; }
+  .btn:disabled { opacity: .5; cursor: wait; }
+  input, select { padding: 8px; border: 1px solid #bbb; border-radius: 6px; font-size: 14px; width: 100%; }
+  #loginBox { max-width: 360px; margin: 60px auto; }
+  #loginBox input { margin: 8px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { padding: 6px; border-bottom: 1px solid #eee; text-align: left; vertical-align: middle; }
+  .readonly { color: #555; }
+  .msg { margin: 8px 0; font-size: 14px; }
+  .err { color: #c0392b; } .ok { color: #2e8b57; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; background: #fff3cd; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔐 หลังบ้านแอดมิน</h1>
+  <button class="btn gray" id="logoutBtn" style="display:none" onclick="logout()">ออกจากระบบ</button>
+</header>
+
+<div id="loginBox" class="card">
+  <h3>เข้าสู่ระบบแอดมิน</h3>
+  <input type="password" id="pw" placeholder="รหัสผ่านแอดมิน" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
+  <button class="btn blue" style="width:100%" onclick="login()">เข้าสู่ระบบ</button>
+  <div class="msg err" id="loginMsg"></div>
+</div>
+
+<main id="app" style="display:none">
+  <div class="tabs">
+    <button data-tab="wallet" class="active" onclick="showTab('wallet')">💰 ฝาก / ถอน</button>
+    <button data-tab="shipping" onclick="showTab('shipping')">📦 จัดส่งสลาก</button>
+    <button data-tab="settings" onclick="showTab('settings')">⚙️ ตั้งค่า</button>
+  </div>
+  <div class="msg" id="globalMsg"></div>
+  <section id="tab-wallet"></section>
+  <section id="tab-shipping" style="display:none"></section>
+  <section id="tab-settings" style="display:none"></section>
+</main>
+
+<script src="config.js?v=65"></script>
+<script>
+  const TOKEN_KEY = "adminToken";
+  let currentTab = "wallet";
+
+  function esc(s) {
+    return String(s === undefined || s === null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function $(id) { return document.getElementById(id); }
+  function setMsg(text, ok) {
+    const el = $("globalMsg"); el.textContent = text || ""; el.className = "msg " + (ok ? "ok" : "err");
+  }
+
+  async function api(action, fields = {}) {
+    const res = await fetch(BACKEND_URL, {
+      method: "POST",
+      body: JSON.stringify({ action, adminToken: sessionStorage.getItem(TOKEN_KEY) || "", ...fields })
+    });
+    let result;
+    try { result = JSON.parse(await res.text()); } catch (e) { throw new Error("Backend ตอบกลับไม่ถูกต้อง"); }
+    if (result.code === "ADMIN_AUTH") { showLogin("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่"); throw new Error(result.message); }
+    return result;
+  }
+
+  function showLogin(message) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    $("loginBox").style.display = "block"; $("app").style.display = "none"; $("logoutBtn").style.display = "none";
+    $("loginMsg").textContent = message || "";
+  }
+  function showApp() {
+    $("loginBox").style.display = "none"; $("app").style.display = "block"; $("logoutBtn").style.display = "inline-block";
+    showTab(currentTab);
+  }
+
+  async function login() {
+    $("loginMsg").textContent = "";
+    try {
+      const r = await api("adminLogin", { password: $("pw").value });
+      if (r.status !== "success") { $("loginMsg").textContent = r.message || "เข้าสู่ระบบไม่สำเร็จ"; return; }
+      sessionStorage.setItem(TOKEN_KEY, r.token); $("pw").value = ""; showApp();
+    } catch (e) { $("loginMsg").textContent = e.message; }
+  }
+  async function logout() {
+    try { await api("adminLogout"); } catch (e) {}
+    showLogin("");
+  }
+
+  function showTab(name) {
+    currentTab = name; setMsg("");
+    document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+    ["wallet", "shipping", "settings"].forEach(t => $("tab-" + t).style.display = t === name ? "block" : "none");
+    ({ wallet: loadWallet, shipping: loadShipping, settings: loadSettings })[name]();
+  }
+
+  // ---------- ฝาก / ถอน ----------
+  let walletData = { deposits: [], withdrawals: [] };
+  async function loadWallet() {
+    const box = $("tab-wallet"); box.innerHTML = "<div class='muted'>กำลังโหลด...</div>";
+    try {
+      const r = await api("adminGetWallet"); walletData = r;
+      if (r.status !== "success") { box.innerHTML = ""; return setMsg(r.message); }
+      let html = "<h3>รายการฝากที่รอตรวจสอบ (" + r.deposits.length + ")</h3>";
+      html += r.deposits.map((d, i) => `<div class="card">
+        <div class="row"><b>${esc(d.name || "-")}</b><span class="badge">${esc(d.status)}</span></div>
+        <div class="row"><span>สมาชิก ${esc(d.memberNumber)}</span><span class="muted">${esc(d.time)}</span></div>
+        <div class="row"><span>ยอดที่ลูกค้าเติม</span><span class="amount">${esc(d.netAmount)} บาท</span></div>
+        <div class="muted">${esc(d.txId)}</div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn" ${d.status !== "รอตรวจสอบ" ? "disabled title='สถานะนี้ต้องตรวจสอบมือ'" : ""} onclick="walletAct(this,'adminConfirmDeposit','deposits',${i})">✅ ดำเนินการเรียบร้อย (เติมเครดิต)</button>
+          <button class="btn red" ${d.status !== "รอตรวจสอบ" ? "disabled" : ""} onclick="walletAct(this,'adminRejectDeposit','deposits',${i})">ยกเลิก</button>
+        </div></div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
+      html += "<h3 style='margin-top:18px'>รายการถอนที่รอโอน (" + r.withdrawals.length + ")</h3>";
+      html += r.withdrawals.map((w, i) => `<div class="card">
+        <div class="row"><b>${esc(w.name || "-")}</b><span class="muted">${esc(w.time)}</span></div>
+        <div class="row"><span>สมาชิก ${esc(w.memberNumber)}</span><span class="amount">${esc(w.netAmount)} บาท</span></div>
+        <div class="row"><span>ธนาคาร: ${esc(w.bank)}</span><span>เลขบัญชี: <b>${esc(w.account)}</b></span></div>
+        <div class="muted">${esc(w.txId)} (ระบบหักยอดจากลูกค้าไว้แล้ว)</div>
+        <div style="margin-top:8px"><button class="btn" onclick="walletAct(this,'adminCompleteWithdrawal','withdrawals',${i})">✅ ดำเนินการเรียบร้อย (โอนแล้ว)</button></div>
+      </div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
+      box.innerHTML = html;
+    } catch (e) { box.innerHTML = ""; setMsg(e.message); }
+  }
+  async function walletAct(btn, action, list, index) {
+    const item = walletData[list][index];
+    const txId = item.txId;
+    const questions = {
+      adminConfirmDeposit: "ยืนยันเติมเงิน " + item.netAmount + " บาท ให้ " + item.name + " ?",
+      adminRejectDeposit: "ยกเลิกรายการฝากนี้?",
+      adminCompleteWithdrawal: "โอนเงิน " + item.netAmount + " บาท ให้ " + item.name + " เรียบร้อยแล้วใช่หรือไม่?"
+    };
+    if (!confirm(questions[action])) return;
+    btn.disabled = true;
+    try {
+      const r = await api(action, { txId });
+      setMsg(r.message, r.status === "success");
+      await loadWallet();
+    } catch (e) { setMsg(e.message); btn.disabled = false; }
+  }
+
+  // ---------- จัดส่งสลาก ----------
+  let shippingData = { orders: [], prizeReturns: [] };
+  async function loadShipping() {
+    const box = $("tab-shipping"); box.innerHTML = "<div class='muted'>กำลังโหลด...</div>";
+    try {
+      const r = await api("adminGetShipping");
+      if (r.status !== "success") { box.innerHTML = ""; return setMsg(r.message); }
+      shippingData = r;
+      const label = (type, i) => `<button class="btn blue" onclick="printLabel('${type}',${i})">🖨️ พิมพ์ชื่อที่อยู่</button> <button class="btn gray" onclick="copyAddr('${type}',${i})">คัดลอก</button>`;
+      let html = "<h3>ลูกค้าซื้อและเลือกรับสลากจริง (" + r.orders.length + ")</h3>";
+      html += r.orders.map((o, i) => `<div class="card">
+        <div class="row"><b>${esc(o.name)}</b><span class="muted">${esc(o.orderId)}</span></div>
+        <div class="row"><span>โทร ${esc(o.phone)}</span><span>สมาชิก ${esc(o.memberNumber)}</span></div>
+        <div class="row"><span>ที่อยู่: ${esc(o.address)}</span></div>
+        <div class="muted">สลาก: ${esc(o.tickets.join(", "))}</div>
+        <div style="margin-top:8px">${label("order", i)}</div></div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
+      html += "<h3 style='margin-top:18px'>ลูกค้าถูกรางวัลและขอรับสลากจริง (" + r.prizeReturns.length + ")</h3>";
+      html += r.prizeReturns.map((o, i) => `<div class="card">
+        <div class="row"><b>${esc(o.name)}</b><span class="badge">${esc(o.method)} · ${esc(o.status)}</span></div>
+        <div class="row"><span>โทร ${esc(o.phone)}</span><span class="muted">${esc(o.time)}</span></div>
+        <div class="row"><span>ที่อยู่: ${esc(o.address || "-")}</span></div>
+        <div class="muted">สลาก: ${esc(o.tickets.join(", "))}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${label("return", i)}
+          ${o.status.indexOf("รอ") === 0 ? `<button class="btn" onclick="markReturn(this,${i})">✅ ${o.method === "ส่งไปรษณีย์" ? "จัดส่งแล้ว" : "ลูกค้ารับแล้ว"}</button>` : ""}
+        </div></div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
+      box.innerHTML = html;
+    } catch (e) { box.innerHTML = ""; setMsg(e.message); }
+  }
+  function shippingItem(type, i) { return type === "order" ? shippingData.orders[i] : shippingData.prizeReturns[i]; }
+  function printLabel(type, i) {
+    const o = shippingItem(type, i);
+    const w = window.open("", "_blank", "width=520,height=420");
+    if (!w) return alert("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาต popup");
+    w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ที่อยู่จัดส่ง</title>
+      <style>body{font-family:Tahoma,sans-serif;padding:24px;font-size:20px}.box{border:2px solid #000;padding:16px;max-width:460px}</style></head>
+      <body><div class="box"><div>ผู้รับ: <b>${esc(o.name)}</b></div><div>โทร: ${esc(o.phone)}</div>
+      <div style="margin-top:8px">ที่อยู่: ${esc(o.address)}</div></div>
+      <script>window.onload=function(){window.print();}<\/script></body></html>`);
+    w.document.close();
+  }
+  async function copyAddr(type, i) {
+    const o = shippingItem(type, i);
+    const text = `${o.name}\nโทร ${o.phone}\n${o.address}`;
+    try { await navigator.clipboard.writeText(text); setMsg("คัดลอกชื่อที่อยู่แล้ว", true); }
+    catch (e) { prompt("คัดลอกข้อความนี้", text); }
+  }
+  async function markReturn(btn, index) {
+    const item = shippingData.prizeReturns[index];
+    const requestId = item.requestId;
+    const newStatus = item.method === "ส่งไปรษณีย์" ? "จัดส่งแล้ว" : "รับสลากแล้ว";
+    if (!confirm("เปลี่ยนสถานะเป็น \"" + newStatus + "\" ?")) return;
+    btn.disabled = true;
+    try { const r = await api("adminSetReturnStatus", { requestId, newStatus }); setMsg(r.message, r.status === "success"); await loadShipping(); }
+    catch (e) { setMsg(e.message); btn.disabled = false; }
+  }
+
+  // ---------- Settings ----------
+  let settingsOriginal = {};
+  async function loadSettings() {
+    const box = $("tab-settings"); box.innerHTML = "<div class='muted'>กำลังโหลด...</div>";
+    try {
+      const r = await api("adminGetSettings");
+      if (r.status !== "success") { box.innerHTML = ""; return setMsg(r.message); }
+      settingsOriginal = {};
+      let html = "<div class='card'><table>";
+      r.rows.forEach(row => {
+        html += "<tr>";
+        row.cells.forEach(c => {
+          const key = row.row + "_" + c.col;
+          if (c.col === 1) html += `<th style="width:35%">${esc(c.value)}</th>`;
+          else if (!c.editable) html += `<td class="readonly">${esc(c.value)}</td>`;
+          else {
+            settingsOriginal[key] = c.value;
+            if (c.options && c.options.length) {
+              const opts = c.options.map(o => `<option ${o === c.value ? "selected" : ""}>${esc(o)}</option>`).join("");
+              html += `<td><select data-key="${key}">${opts}</select></td>`;
+            } else html += `<td><input data-key="${key}" value="${esc(c.value)}"></td>`;
+          }
+        });
+        html += "</tr>";
+      });
+      html += "</table><div style='margin-top:10px'><button class='btn' onclick='saveSettings(this)'>💾 บันทึกการตั้งค่า</button></div></div>";
+      box.innerHTML = html;
+    } catch (e) { box.innerHTML = ""; setMsg(e.message); }
+  }
+  async function saveSettings(btn) {
+    const changes = [];
+    document.querySelectorAll("#tab-settings [data-key]").forEach(el => {
+      if (el.value !== settingsOriginal[el.dataset.key]) {
+        const [row, col] = el.dataset.key.split("_").map(Number);
+        changes.push({ row, col, value: el.value });
+      }
+    });
+    if (!changes.length) return setMsg("ไม่มีการเปลี่ยนแปลง", true);
+    if (!confirm("บันทึกการเปลี่ยนแปลง " + changes.length + " รายการ?")) return;
+    btn.disabled = true;
+    try { const r = await api("adminSaveSettings", { changes }); setMsg(r.message, r.status === "success"); if (r.status === "success") await loadSettings(); }
+    catch (e) { setMsg(e.message); }
+    btn.disabled = false;
+  }
+
+  if (sessionStorage.getItem(TOKEN_KEY)) showApp();
+</script>
+</body>
+</html>
