@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>โชคดีล็อตเตอรี่</title>
+  <script>
+    // เบราว์เซอร์ในแอป LINE (ไม่ใช่ LIFF) มักค้าง จึงสั่งให้เปิดในเบราว์เซอร์ภายนอก
+    (function () {
+      var ua = navigator.userAgent || "";
+      var p = new URLSearchParams(location.search);
+      if (/ Line\//i.test(ua) && !/LIFF/i.test(ua) && !p.has("openExternalBrowser") && !p.has("liff.state") && !p.has("code")) {
+        p.set("openExternalBrowser", "1");
+        location.replace(location.pathname + "?" + p.toString() + location.hash);
+      }
+    })();
+  </script>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -519,7 +530,16 @@
     try {
       if (typeof liff === "undefined") throw new Error("SDK Not Loaded");
 
-      await liff.init({ liffId: LIFF_ID });
+      const slowTimer = setTimeout(() => {
+        if (statusElem && statusElem.style.display !== "none")
+          statusElem.innerHTML = 'การเชื่อมต่อช้า ... <a href="' + location.origin + location.pathname + '?openExternalBrowser=1" style="color:#d9534f;font-weight:bold;">แตะที่นี่เพื่อเปิดใน Chrome/Safari</a>';
+      }, 6000);
+      try {
+        await Promise.race([
+          liff.init({ liffId: LIFF_ID }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("LIFF init timeout")), 15000))
+        ]);
+      } finally { clearTimeout(slowTimer); }
 
       const lineOaBtn = document.getElementById("lineOaBtn");
       if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
