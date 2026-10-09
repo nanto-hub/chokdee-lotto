@@ -131,8 +131,42 @@
         <div class="msg" id="mgCheck"></div></div>
       <div class="card"><h3>3. อัพเดทหวยเข้าระบบ</h3>
         <div class="muted" style="margin-bottom:6px">นำเข้ารูปจากโฟลเดอร์ "หวยรอลงระบบ" แล้วย้ายไปโฟลเดอร์ "หวยในระบบ" (ไม่เปลี่ยนชื่อไฟล์) อาจใช้เวลาหลายนาที</div>
-        <button class="btn" onclick="manageAct(this,'adminImportTickets',{},'mgImport')">⚡ อัพเดทหวยเข้าระบบ</button>
+        <button class="btn" id="mgImportBtn" onclick="importTickets(this)">⚡ อัพเดทหวยเข้าระบบ</button>
+        <div id="mgImportBar" style="display:none;margin-top:10px;background:#e5e7eb;border-radius:8px;overflow:hidden;height:22px">
+          <div id="mgImportFill" style="height:100%;width:0;background:#16a34a;color:#fff;font-size:13px;text-align:center;line-height:22px;transition:width .3s">0%</div></div>
         <div class="msg" id="mgImport"></div></div>`;
+  }
+  async function importTickets(btn) {
+    const el = $("mgImport"), bar = $("mgImportBar"), fill = $("mgImportFill");
+    const setPct = p => { p = Math.max(0, Math.min(100, Math.round(p))); fill.style.width = p + "%"; fill.textContent = p + "%"; };
+    btn.disabled = true; bar.style.display = "block"; setPct(0);
+    el.className = "msg muted"; el.textContent = "⏳ กำลังนับรูปในโฟลเดอร์หวยรอลงระบบ...";
+    const sum = { imported: 0, duplicates: 0, failed: 0 };
+    let total = 0, handled = 0, error = "";
+    try {
+      const c = await api("adminImportCount");
+      if (c.status !== "success") throw new Error(c.message);
+      total = c.total;
+      if (!total) { setPct(100); el.className = "msg ok"; el.textContent = "✅ ไม่มีรูปในโฟลเดอร์หวยรอลงระบบ"; btn.disabled = false; return; }
+      while (handled < total) {
+        el.className = "msg muted";
+        el.textContent = "⏳ กำลังนำเข้า " + handled + " / " + total + " รูป... อย่าปิดหน้านี้";
+        const r = await api("adminImportTickets");
+        if (r.status !== "success") { error = r.message; break; }
+        const n = (r.imported || 0) + (r.duplicates || 0) + (r.failed || 0);
+        sum.imported += r.imported || 0; sum.duplicates += r.duplicates || 0; sum.failed += r.failed || 0;
+        handled += n;
+        setPct(handled / total * 100);
+        if (!r.more || n === 0) break;
+      }
+    } catch (e) { error = e.message; }
+    if (!error) setPct(100);
+    el.className = "msg " + (error ? "err" : "ok");
+    el.textContent = (error ? "❌ หยุดทำงาน: " + error + "\n" : "✅ ดำเนินการเสร็จสิ้น\n") +
+      "สรุป: รูปทั้งหมด " + total + " รูป | นำเข้าสำเร็จ " + sum.imported + " ใบ | รูปซ้ำ " + sum.duplicates + " ใบ | อ่านไม่สำเร็จ " + sum.failed + " รูป" +
+      (handled < total && !error ? " | เหลืออีก " + (total - handled) + " รูป (กดอัพเดทอีกครั้ง)" : "");
+    el.style.whiteSpace = "pre-line";
+    btn.disabled = false;
   }
   async function manageAct(btn, action, fields, msgId) {
     const el = $(msgId);
@@ -206,7 +240,9 @@
         <div class="row"><span>โทร ${esc(o.phone)}</span><span>สมาชิก ${esc(o.memberNumber)}</span></div>
         <div class="row"><span>ที่อยู่: ${esc(o.address)}</span></div>
         <div class="muted">สลาก: ${esc(o.tickets.join(", "))}</div>
-        <div style="margin-top:8px">${label("order", i)}</div></div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${label("order", i)}
+          ${o.status === "จัดส่งแล้ว" ? `<span class="badge">จัดส่งแล้ว</span>` : `<button class="btn" onclick="markOrder(this,${i})">✅ ดำเนินการเรียบร้อย</button>`}
+        </div></div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
       html += "<h3 style='margin-top:18px'>ลูกค้าถูกรางวัลและขอรับสลากจริง (" + r.prizeReturns.length + ")</h3>";
       html += r.prizeReturns.map((o, i) => `<div class="card">
         <div class="row"><b>${esc(o.name)}</b><span class="badge">${esc(o.method)} · ${esc(o.status)}</span></div>
@@ -236,6 +272,13 @@
     const text = `${o.name}\nโทร ${o.phone}\n${o.address}`;
     try { await navigator.clipboard.writeText(text); setMsg("คัดลอกชื่อที่อยู่แล้ว", true); }
     catch (e) { prompt("คัดลอกข้อความนี้", text); }
+  }
+  async function markOrder(btn, index) {
+    const o = shippingData.orders[index];
+    if (!confirm("ยืนยันว่าดำเนินการจัดส่งออเดอร์ของ " + o.name + " เรียบร้อยแล้ว?")) return;
+    btn.disabled = true;
+    try { const r = await api("adminSetOrderShipped", { orderId: o.orderId }); setMsg(r.message, r.status === "success"); await loadShipping(); }
+    catch (e) { setMsg(e.message); btn.disabled = false; }
   }
   async function markReturn(btn, index) {
     const item = shippingData.prizeReturns[index];
