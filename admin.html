@@ -51,11 +51,13 @@
     <button data-tab="wallet" class="active" onclick="showTab('wallet')">💰 ฝาก / ถอน</button>
     <button data-tab="shipping" onclick="showTab('shipping')">📦 จัดส่งสลาก</button>
     <button data-tab="settings" onclick="showTab('settings')">⚙️ ตั้งค่า</button>
+    <button data-tab="manage" onclick="showTab('manage')">🏪 จัดการร้าน</button>
   </div>
   <div class="msg" id="globalMsg"></div>
   <section id="tab-wallet"></section>
   <section id="tab-shipping" style="display:none"></section>
   <section id="tab-settings" style="display:none"></section>
+  <section id="tab-manage" style="display:none"></section>
 </main>
 
 <script src="config.js?v=65"></script>
@@ -108,8 +110,40 @@
   function showTab(name) {
     currentTab = name; setMsg("");
     document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-    ["wallet", "shipping", "settings"].forEach(t => $("tab-" + t).style.display = t === name ? "block" : "none");
-    ({ wallet: loadWallet, shipping: loadShipping, settings: loadSettings })[name]();
+    ["wallet", "shipping", "settings", "manage"].forEach(t => $("tab-" + t).style.display = t === name ? "block" : "none");
+    ({ wallet: loadWallet, shipping: loadShipping, settings: loadSettings, manage: loadManage })[name]();
+  }
+
+  // ---------- จัดการร้าน ----------
+  function loadManage() {
+    const box = $("tab-manage");
+    if (box.dataset.ready) return;
+    box.dataset.ready = "1";
+    box.innerHTML = `
+      <div class="card"><h3>1. ดึงผลรางวัล</h3>
+        <div class="muted" style="margin-bottom:6px">วางลิงก์หน้าตรวจหวยของงวดที่ต้องการ (เช่น https://news.sanook.com/lotto/check/16052567/)</div>
+        <input id="resultUrl" placeholder="https://news.sanook.com/lotto/check/...">
+        <div style="margin-top:8px"><button class="btn blue" onclick="manageAct(this,'adminFetchResults',{url:$('resultUrl').value},'mgFetch')">📥 ดึงผลรางวัล</button></div>
+        <div class="msg" id="mgFetch"></div></div>
+      <div class="card"><h3>2. ตรวจผลรางวัลในแผง</h3>
+        <div class="muted" style="margin-bottom:6px">ตรวจสลากที่ยังรอการออกรางวัลทุกใบ เทียบกับผลรางวัลที่ดึงไว้</div>
+        <button class="btn" onclick="manageAct(this,'adminCheckPrizes',{},'mgCheck')">🔍 ตรวจผลรางวัล</button>
+        <div class="msg" id="mgCheck"></div></div>
+      <div class="card"><h3>3. อัพเดทหวยเข้าระบบ</h3>
+        <div class="muted" style="margin-bottom:6px">นำเข้ารูปจากโฟลเดอร์ "หวยรอลงระบบ" แล้วย้ายไปโฟลเดอร์ "หวยในระบบ" (ไม่เปลี่ยนชื่อไฟล์) อาจใช้เวลาหลายนาที</div>
+        <button class="btn" onclick="manageAct(this,'adminImportTickets',{},'mgImport')">⚡ อัพเดทหวยเข้าระบบ</button>
+        <div class="msg" id="mgImport"></div></div>`;
+  }
+  async function manageAct(btn, action, fields, msgId) {
+    const el = $(msgId);
+    if (action === "adminFetchResults" && !String(fields.url || "").trim()) { el.className = "msg err"; el.textContent = "กรุณาวางลิงก์ก่อน"; return; }
+    btn.disabled = true; el.className = "msg muted"; el.textContent = "⏳ กำลังดำเนินการ... กรุณารอ อย่าปิดหน้านี้";
+    try {
+      const r = await api(action, fields);
+      el.className = "msg " + (r.status === "success" ? "ok" : "err");
+      el.textContent = (r.status === "success" ? "✅ " : "❌ ") + (r.message || "");
+    } catch (e) { el.className = "msg err"; el.textContent = e.message; }
+    btn.disabled = false;
   }
 
   // ---------- ฝาก / ถอน ----------
