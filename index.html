@@ -428,8 +428,28 @@
     document.getElementById("myTicketsSection").style.display = "none";
   }
 
+  function isIdTokenExpired() {
+    try {
+      const decoded = liff.getDecodedIDToken();
+      return !decoded || !decoded.exp || decoded.exp * 1000 < Date.now() + 30000;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // ID token ของ LINE อายุ 1 ชั่วโมง เมื่อหมดอายุให้ล็อกอินใหม่อัตโนมัติ (กันวนซ้ำภายใน 60 วินาที)
+  function forceRelogin() {
+    const last = Number(sessionStorage.getItem("reloginAt") || 0);
+    if (Date.now() - last < 60000) return false;
+    sessionStorage.setItem("reloginAt", String(Date.now()));
+    try { liff.logout(); } catch (e) {}
+    liff.login({ redirectUri: location.origin + location.pathname });
+    return true;
+  }
+
   async function apiPost(action, fields = {}) {
     if (typeof liff === "undefined" || !liff.isLoggedIn()) throw new Error("กรุณาเข้าสู่ระบบ LINE");
+    if (isIdTokenExpired() && forceRelogin()) throw new Error("เซสชัน LINE หมดอายุ กำลังเข้าสู่ระบบใหม่...");
     const idToken = liff.getIDToken();
     if (!idToken) throw new Error("ไม่พบ LINE ID token");
     const retryableReadActions = new Set(["getDashboard", "getProfile", "getMyTickets", "checkPendingDeposit", "search"]);
@@ -452,8 +472,12 @@
 
       const responseText = await response.text();
       try {
-        return JSON.parse(responseText);
+        const parsed = JSON.parse(responseText);
+        if (parsed && ["ID_TOKEN_EXPIRED", "LINE_TOKEN_REJECTED", "ID_TOKEN_MISSING"].includes(parsed.code) && forceRelogin())
+          throw new Error("เซสชัน LINE หมดอายุ กำลังเข้าสู่ระบบใหม่...");
+        return parsed;
       } catch (error) {
+        if (error.message.startsWith("เซสชัน LINE")) throw error;
         const responseSummary = responseText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
         if (response.status === 404 && attempt + 1 < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
@@ -497,6 +521,8 @@
           refInput.style.backgroundColor = "#e9ecef";
         }
       }
+
+      if (liff.isLoggedIn() && isIdTokenExpired() && forceRelogin()) return;
 
       if (liff.isLoggedIn()) {
         document.getElementById("menuLogin").style.display = "none";
@@ -579,6 +605,13 @@
           ? `บัญชีที่ลงทะเบียน: ${registeredBankName} ••••${registeredBankAccount.slice(-4)}`
           : "ยังไม่มีบัญชีธนาคารที่ลงทะเบียน";
         
+        const refField = document.getElementById("referrerCode");
+        if (refField && result.data.referrerCode) {
+          refField.value = result.data.referrerCode;
+          refField.readOnly = true;
+          refField.style.backgroundColor = "#e9ecef";
+        }
+
         if (result.data.myReferralCode) {
           document.getElementById("myShareLink").value = `https://liff.line.me/${LIFF_ID}?ref=${result.data.myReferralCode}`;
           document.getElementById("referralLinkSection").style.display = "block";
