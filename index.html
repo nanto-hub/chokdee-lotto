@@ -204,9 +204,22 @@
         <div id="cartTimerDisplay" style="color: #d9534f; font-size: 15px; text-align: center; margin-bottom: 10px;"></div>
         <div id="selectedLotsContainer" class="cart-tags-container"></div>
         <label style="font-weight: bold; margin-top: 10px; display: block;">เลือกรูปแบบบริการ:</label>
-        <select id="shippingType" class="select-style" onchange="reCalculatePrice()"></select>
+        <input type="hidden" id="shippingType" value="ฝากตรวจ">
+        <div id="shippingChoices" style="margin-bottom:8px;">
+          <label style="display:block;padding:6px 0;cursor:pointer;"><input type="checkbox" id="chkDeposit" checked onchange="pickShipping('ฝากตรวจ')"> <span id="lblDeposit">📦 ฝากตรวจ</span></label>
+          <label id="rowReal" style="display:none;padding:6px 0;cursor:pointer;"><input type="checkbox" id="chkReal" onchange="pickShipping('ส่งใบจริง')"> <span id="lblReal">🚚 รับใบจริง</span></label>
+        </div>
         <p style="font-size: 16px; font-weight: bold;">ยอดชำระสุทธิ: <span id="estPrice" style="color: #28a745;">0</span> บาท</p>
         <button class="btn-order" id="btnSubmitOrder" onclick="submitOrder()">🛒 ยืนยันการสั่งซื้อ</button>
+      </div>
+
+      <div id="orderConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:15px;">
+        <div style="background:#fff;border-radius:12px;padding:18px;max-width:420px;width:100%;max-height:85vh;overflow:auto;">
+          <h3 style="margin-top:0;">🧾 สรุปรายการสั่งซื้อ</h3>
+          <div id="orderConfirmBody"></div>
+          <button class="btn-order" onclick="finalConfirmOrder()">✅ ยืนยันการสั่งซื้อ</button>
+          <button type="button" class="btn-back" style="margin-top:8px;" onclick="closeOrderConfirm()">⬅️ กลับไปหน้าแผงหวยเพื่อซื้อเพิ่ม</button>
+        </div>
       </div>
 
       <div id="qrContainer">
@@ -936,15 +949,11 @@
       });
 
       const shippingType = document.getElementById("shippingType");
-      const previousShippingType = shippingType.value;
-      let shippingOptionsHtml = `<option value="ฝากตรวจ">📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + ค่าเช่าพื้นที่จัดเก็บ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)</option>`;
-      if (storeConfig && storeConfig.allowShipping) {
-        shippingOptionsHtml += `<option value="ส่งใบจริง">🚚 ส่งใบจริง (บวกค่าส่งเหมา ${storeConfig.feeShipping} บ.)</option>`;
-      }
-      shippingType.innerHTML = shippingOptionsHtml;
-      if ([...shippingType.options].some(option => option.value === previousShippingType))
-        shippingType.value = previousShippingType;
-      reCalculatePrice();
+      document.getElementById("lblDeposit").innerText = `📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + ค่าเช่าพื้นที่จัดเก็บ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)`;
+      const allowReal = !!(storeConfig && storeConfig.allowShipping);
+      document.getElementById("rowReal").style.display = allowReal ? "block" : "none";
+      document.getElementById("lblReal").innerText = `🚚 รับใบจริง (ใบละ ${storeConfig.ticketPrice} + ค่าบริการบรรจุ+ซอง ${storeConfig.feeDeposit} + ค่าจัดส่งเหมา ${storeConfig.feeShipping} บ.)`;
+      if (!allowReal) pickShipping("ฝากตรวจ"); else pickShipping(shippingType.value);
 
       let html = Object.values(groupedTickets).map(group => {
         let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId && c.drawDate === group.drawDate).length;
@@ -1131,6 +1140,27 @@
     }
   }
 
+  function pickShipping(value) {
+    document.getElementById("shippingType").value = value;
+    document.getElementById("chkDeposit").checked = value === "ฝากตรวจ";
+    document.getElementById("chkReal").checked = value === "ส่งใบจริง";
+    reCalculatePrice();
+  }
+
+  function showOrderConfirm() {
+    const isReal = document.getElementById("shippingType").value === "ส่งใบจริง";
+    const rows = cart.map(i => [`ค่าสลากหมายเลข ${i.ticketId} (งวด ${i.drawDate}, ชุด ${i.setNo})`, storeConfig.ticketPrice]);
+    rows.push([(isReal ? "ค่าบริการบรรจุ + ซอง" : "ค่าบริการเช่าพื้นที่จัดเก็บ") + ` (${cart.length} ใบ)`, cart.length * storeConfig.feeDeposit]);
+    if (isReal) rows.push(["ค่าบริการจัดส่ง", storeConfig.feeShipping]);
+    const total = rows.reduce((s, r) => s + r[1], 0);
+    document.getElementById("orderConfirmBody").innerHTML =
+      rows.map(r => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed #ddd;"><span>${escapeHtml(r[0])}</span><b>${r[1]} บาท</b></div>`).join("") +
+      `<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:17px;"><b>รวมที่หัก</b><b style="color:#28a745;">${total} บาท</b></div>`;
+    document.getElementById("orderConfirmModal").style.display = "flex";
+  }
+  function closeOrderConfirm() { document.getElementById("orderConfirmModal").style.display = "none"; }
+  function finalConfirmOrder() { closeOrderConfirm(); submitOrder(true); }
+
   function reCalculatePrice() {
     if (!storeConfig) return;
     let price = (cart.length * storeConfig.ticketPrice) + (cart.length * storeConfig.feeDeposit);
@@ -1139,13 +1169,14 @@
   }
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
-  async function submitOrder() {
+  async function submitOrder(confirmed) {
     if (!checkAuthStatus()) { 
       alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนสั่งซื้อครับ"); 
       liff.login(); 
       return; 
     }
     if (cart.length === 0) return;
+    if (confirmed !== true) { showOrderConfirm(); return; }
     const type = document.getElementById("shippingType").value;
 
     let ticketKeys = cart.map(item => item.uniqueKey);
