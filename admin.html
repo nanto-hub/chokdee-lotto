@@ -241,7 +241,7 @@
         <div class="row"><span>ที่อยู่: ${esc(o.address)}</span></div>
         <div class="muted">สลาก: ${esc(o.tickets.join(", "))}</div>
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${label("order", i)}
-          ${o.status === "จัดส่งแล้ว" ? `<span class="badge">จัดส่งแล้ว</span>` : `<button class="btn" onclick="markOrder(this,${i})">✅ ดำเนินการเรียบร้อย</button>`}
+          ${o.status === "จัดส่งแล้ว" ? `<span class="badge">จัดส่งแล้ว · EMS ${esc(o.ems || "-")}</span>` : `<input id="ems_${i}" placeholder="หมายเลข EMS" style="max-width:200px" oninput="$('emsBtn_${i}').disabled=!this.value.trim()"><button class="btn" id="emsBtn_${i}" disabled onclick="markOrder(this,${i})">✅ ดำเนินการเรียบร้อย</button>`}
         </div></div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
       html += "<h3 style='margin-top:18px'>ลูกค้าถูกรางวัลและขอรับสลากจริง (" + r.prizeReturns.length + ")</h3>";
       html += r.prizeReturns.map((o, i) => `<div class="card">
@@ -275,9 +275,11 @@
   }
   async function markOrder(btn, index) {
     const o = shippingData.orders[index];
-    if (!confirm("ยืนยันว่าดำเนินการจัดส่งออเดอร์ของ " + o.name + " เรียบร้อยแล้ว?")) return;
+    const ems = ($("ems_" + index).value || "").trim();
+    if (!ems) return alert("กรุณากรอกหมายเลข EMS ก่อน");
+    if (!confirm("ยืนยันจัดส่งออเดอร์ของ " + o.name + " (EMS: " + ems + ") เรียบร้อยแล้ว?")) return;
     btn.disabled = true;
-    try { const r = await api("adminSetOrderShipped", { orderId: o.orderId }); setMsg(r.message, r.status === "success"); await loadShipping(); }
+    try { const r = await api("adminSetOrderShipped", { orderId: o.orderId, ems }); setMsg(r.message, r.status === "success"); await loadShipping(); }
     catch (e) { setMsg(e.message); btn.disabled = false; }
   }
   async function markReturn(btn, index) {
