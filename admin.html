@@ -14,6 +14,8 @@
   .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
   .tabs button { flex: 1; padding: 10px; border: 0; border-radius: 8px; background: #dde3e8; font-size: 15px; cursor: pointer; }
   .tabs button.active { background: #e84a4a; color: #fff; }
+  .tabs .cnt { display: inline-block; min-width: 22px; padding: 1px 7px; margin-left: 6px; border-radius: 12px; background: #e84a4a; color: #fff; font-size: 13px; font-weight: bold; }
+  .tabs button.active .cnt { background: #fff; color: #e84a4a; }
   .card { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
   .card h3 { margin: 0 0 8px; font-size: 16px; }
   .row { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 4px 0; font-size: 14px; }
@@ -48,8 +50,8 @@
 
 <main id="app" style="display:none">
   <div class="tabs">
-    <button data-tab="wallet" class="active" onclick="showTab('wallet')">💰 ฝาก / ถอน</button>
-    <button data-tab="shipping" onclick="showTab('shipping')">📦 จัดส่งสลาก</button>
+    <button data-tab="wallet" class="active" onclick="showTab('wallet')">💰 ฝาก / ถอน<span class="cnt" id="cnt-wallet" style="display:none"></span></button>
+    <button data-tab="shipping" onclick="showTab('shipping')">📦 จัดส่งสลาก<span class="cnt" id="cnt-shipping" style="display:none"></span></button>
     <button data-tab="settings" onclick="showTab('settings')">⚙️ ตั้งค่า</button>
     <button data-tab="manage" onclick="showTab('manage')">🏪 จัดการร้าน</button>
   </div>
@@ -71,6 +73,7 @@
   function $(id) { return document.getElementById(id); }
   function setMsg(text, ok) {
     const el = $("globalMsg"); el.textContent = text || ""; el.className = "msg " + (ok ? "ok" : "err");
+    if (ok && typeof refreshCounts === "function") setTimeout(refreshCounts, 1500);
   }
 
   async function api(action, fields = {}) {
@@ -91,8 +94,35 @@
   }
   function showApp() {
     $("loginBox").style.display = "none"; $("app").style.display = "block"; $("logoutBtn").style.display = "inline-block";
-    showTab(currentTab);
+    showTab(currentTab); startCountPolling();
   }
+
+  let countTimer = null, lastCounts = null;
+  function beep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)(), o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination); g.gain.value = 0.1; o.frequency.value = 880; o.start(); o.stop(ctx.currentTime + 0.25);
+    } catch (e) {}
+  }
+  async function refreshCounts() {
+    if (!sessionStorage.getItem(TOKEN_KEY) || document.hidden) return;
+    try {
+      const r = await api("adminGetCounts");
+      if (r.status !== "success") return;
+      ["wallet", "shipping"].forEach(k => {
+        const el = $("cnt-" + k); el.textContent = r[k]; el.style.display = r[k] > 0 ? "inline-block" : "none";
+      });
+      if (lastCounts && (r.wallet > lastCounts.wallet || r.shipping > lastCounts.shipping)) beep();
+      lastCounts = { wallet: r.wallet, shipping: r.shipping };
+      document.title = (r.wallet + r.shipping > 0 ? "(" + (r.wallet + r.shipping) + ") " : "") + "แอดมิน";
+    } catch (e) {}
+  }
+  function startCountPolling() {
+    if (countTimer) clearInterval(countTimer);
+    lastCounts = null; refreshCounts();
+    countTimer = setInterval(refreshCounts, 15000);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshCounts(); });
 
   async function login() {
     $("loginMsg").textContent = "";
