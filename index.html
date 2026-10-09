@@ -1051,7 +1051,7 @@
   async function clickSelectTicket(ticketId, drawDate) {
     if (!checkAuthStatus()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานแผงหวยก่อนเลือกสลากลงตะกร้าครับ");
-      liff.login();
+      try { liffLogin(); } catch (e) { location.replace(location.origin + location.pathname + "?openExternalBrowser=1"); }
       return;
     }
 
