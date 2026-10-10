@@ -218,11 +218,15 @@
       const r = await api("adminGetWallet"); walletData = r;
       if (r.status !== "success") { box.innerHTML = ""; return setMsg(r.message); }
       let html = "<h3>รายการฝากที่รอตรวจสอบ (" + r.deposits.length + ")</h3>";
+      html += "<div class='muted'>ตรวจยอดเงินเข้าจริงในบัญชีธนาคารก่อนเติมเครดิตทุกครั้ง รูปสลิปไม่ใช่หลักฐานยืนยันเงินเข้า และห้ามใช้รายการโอนเดียวกันอนุมัติหลายคำขอ</div>";
       html += r.deposits.map((d, i) => `<div class="card">
         <div class="row"><b>${esc(d.name || "-")}</b><span class="badge">${esc(d.status)}</span></div>
         <div class="row"><span>สมาชิก ${esc(d.memberNumber)}</span><span class="muted">${esc(d.time)}</span></div>
         <div class="row"><span>ยอดที่ลูกค้าเติม</span><span class="amount">${esc(d.netAmount)} บาท</span></div>
         <div class="muted">${esc(d.txId)}</div>
+        <div style="margin-top:8px"><b>สลิปที่สมาชิกส่ง (ตรวจเทียบกับคำขอนี้เอง):</b>
+          ${(d.slips || []).map(s => `<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a></div>`).join("") || "<div class='muted'>ยังไม่มีสลิปในระบบ กรุณาตรวจใน LINE OA</div>"}
+        </div>
         <div style="margin-top:8px;display:flex;gap:8px">
           <button class="btn" ${d.status !== "รอตรวจสอบ" ? "disabled title='สถานะนี้ต้องตรวจสอบมือ'" : ""} onclick="walletAct(this,'adminConfirmDeposit','deposits',${i})">✅ ดำเนินการเรียบร้อย (เติมเครดิต)</button>
           <button class="btn red" ${d.status !== "รอตรวจสอบ" ? "disabled" : ""} onclick="walletAct(this,'adminRejectDeposit','deposits',${i})">ยกเลิก</button>
@@ -242,7 +246,7 @@
     const item = walletData[list][index];
     const txId = item.txId;
     const questions = {
-      adminConfirmDeposit: "ยืนยันเติมเงิน " + item.netAmount + " บาท ให้ " + item.name + " ?",
+      adminConfirmDeposit: "ตรวจบัญชีธนาคารแล้วว่าเงินเข้า " + item.netAmount + " บาทจริง และรายการโอนนี้ยังไม่เคยเติมเครดิตใช่หรือไม่? ยืนยันเติมเงินให้ " + item.name,
       adminRejectDeposit: "ยกเลิกรายการฝากนี้?",
       adminCompleteWithdrawal: "โอนเงิน " + item.netAmount + " บาท ให้ " + item.name + " เรียบร้อยแล้วใช่หรือไม่?"
     };
