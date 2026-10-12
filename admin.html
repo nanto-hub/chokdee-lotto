@@ -151,12 +151,13 @@
     box.dataset.ready = "1";
     box.innerHTML = `
       <div class="card"><h3>1. ดึงผลรางวัล</h3>
-        <div class="muted" style="margin-bottom:6px">วางลิงก์หน้าตรวจหวยของงวดที่ต้องการ (เช่น https://news.sanook.com/lotto/check/16052567/)</div>
-        <input id="resultUrl" placeholder="https://news.sanook.com/lotto/check/...">
-        <div style="margin-top:8px"><button class="btn blue" onclick="manageAct(this,'adminFetchResults',{url:$('resultUrl').value},'mgFetch')">📥 ดึงผลรางวัล</button></div>
+        <div class="muted" style="margin-bottom:6px">เลือกวันที่งวด ระบบอ่าน DrawResultsCache ก่อน หากไม่มีจึงดึงจาก Sanook แล้วบันทึกไว้ร่วมกับแอป ไม่ใช้ AI อ่านผลรางวัล</div>
+        <label for="resultDrawDate">วันที่งวด (ค.ศ.)</label>
+        <input id="resultDrawDate" type="date" required>
+        <div style="margin-top:8px"><button class="btn blue" onclick="manageAct(this,'adminFetchResults',{drawDate:$('resultDrawDate').value},'mgFetch')">📥 ดึงผลรางวัล</button></div>
         <div class="msg" id="mgFetch"></div></div>
       <div class="card"><h3>2. ตรวจผลรางวัลในแผง</h3>
-        <div class="muted" style="margin-bottom:6px">ตรวจสลากที่ยังรอการออกรางวัลทุกใบ เทียบกับผลรางวัลที่ดึงไว้</div>
+        <div class="muted" style="margin-bottom:6px">ตรวจสลากที่ยังรอการออกรางวัลทุกใบกับ DrawResultsCache เท่านั้น งวดที่ยังไม่มีผลจะคงสถานะรอ กรุณาดึงผลของงวดนั้นก่อน</div>
         <button class="btn" onclick="manageAct(this,'adminCheckPrizes',{},'mgCheck')">🔍 ตรวจผลรางวัล</button>
         <div class="msg" id="mgCheck"></div></div>
       <div class="card"><h3>3. อัพเดทหวยเข้าระบบ</h3>
@@ -200,7 +201,9 @@
   }
   async function manageAct(btn, action, fields, msgId) {
     const el = $(msgId);
-    if (action === "adminFetchResults" && !String(fields.url || "").trim()) { el.className = "msg err"; el.textContent = "กรุณาวางลิงก์ก่อน"; return; }
+    if (action === "adminFetchResults" && (!/^\d{4}-\d{2}-\d{2}$/.test(fields.drawDate || "") || !$("resultDrawDate").checkValidity())) {
+      el.className = "msg err"; el.textContent = "กรุณาเลือกวันที่งวดให้ถูกต้อง"; return;
+    }
     btn.disabled = true; el.className = "msg muted"; el.textContent = "⏳ กำลังดำเนินการ... กรุณารอ อย่าปิดหน้านี้";
     try {
       const r = await api(action, fields);
