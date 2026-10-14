@@ -38,6 +38,7 @@
 <body>
 <header>
   <h1>🔐 หลังบ้านแอดมิน</h1>
+  <span id="roleLabel" style="display:none"></span>
   <button class="btn gray" id="logoutBtn" style="display:none" onclick="logout()">ออกจากระบบ</button>
 </header>
 
@@ -65,6 +66,7 @@
 <script src="config.js?v=65"></script>
 <script>
   const TOKEN_KEY = "adminToken";
+  let adminRole = null;
   let currentTab = "wallet";
 
   function esc(s) {
@@ -89,10 +91,14 @@
 
   function showLogin(message) {
     sessionStorage.removeItem(TOKEN_KEY);
+    adminRole = null;
+    $("roleLabel").style.display = "none";
     $("loginBox").style.display = "block"; $("app").style.display = "none"; $("logoutBtn").style.display = "none";
     $("loginMsg").textContent = message || "";
   }
   function showApp() {
+    $("roleLabel").textContent = adminRole === "full" ? "สิทธิ์เต็ม" : "ฝาก/ถอน: ดูอย่างเดียว";
+    $("roleLabel").style.display = "inline";
     $("loginBox").style.display = "none"; $("app").style.display = "block"; $("logoutBtn").style.display = "inline-block";
     showTab(currentTab); startCountPolling();
   }
@@ -129,7 +135,7 @@
     try {
       const r = await api("adminLogin", { password: $("pw").value });
       if (r.status !== "success") { $("loginMsg").textContent = r.message || "เข้าสู่ระบบไม่สำเร็จ"; return; }
-      sessionStorage.setItem(TOKEN_KEY, r.token); $("pw").value = ""; showApp();
+      sessionStorage.setItem(TOKEN_KEY, r.token); adminRole = r.role; $("pw").value = ""; showApp();
     } catch (e) { $("loginMsg").textContent = e.message; }
   }
   async function logout() {
@@ -221,6 +227,7 @@
       const r = await api("adminGetWallet"); walletData = r;
       if (r.status !== "success") { box.innerHTML = ""; return setMsg(r.message); }
       let html = "<h3>รายการฝากที่รอตรวจสอบ (" + r.deposits.length + ")</h3>";
+      if (adminRole !== "full") html += "<div class='muted'>รหัสผ่านชุดนี้ดูรายละเอียดและการแจ้งเตือนได้ แต่อนุมัติหรือยกเลิกรายการฝาก/ถอนไม่ได้</div>";
       html += "<div class='muted'>ตรวจยอดเงินเข้าจริงในบัญชีธนาคารก่อนเติมเครดิตทุกครั้ง รูปสลิปไม่ใช่หลักฐานยืนยันเงินเข้า และห้ามใช้รายการโอนเดียวกันอนุมัติหลายคำขอ</div>";
       html += r.deposits.map((d, i) => `<div class="card">
         <div class="row"><b>${esc(d.name || "-")}</b><span class="badge">${esc(d.status)}</span></div>
@@ -230,22 +237,23 @@
         <div style="margin-top:8px"><b>สลิปที่สมาชิกส่ง (ตรวจเทียบกับคำขอนี้เอง):</b>
           ${(d.slips || []).map(s => `<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a></div>`).join("") || "<div class='muted'>ยังไม่มีสลิปในระบบ กรุณาตรวจใน LINE OA</div>"}
         </div>
-        <div style="margin-top:8px;display:flex;gap:8px">
+        ${adminRole === "full" ? `<div style="margin-top:8px;display:flex;gap:8px">
           <button class="btn" ${d.status !== "รอตรวจสอบ" ? "disabled title='สถานะนี้ต้องตรวจสอบมือ'" : ""} onclick="walletAct(this,'adminConfirmDeposit','deposits',${i})">✅ ดำเนินการเรียบร้อย (เติมเครดิต)</button>
           <button class="btn red" ${d.status !== "รอตรวจสอบ" ? "disabled" : ""} onclick="walletAct(this,'adminRejectDeposit','deposits',${i})">ยกเลิก</button>
-        </div></div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
+        </div>` : ""}</div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
       html += "<h3 style='margin-top:18px'>รายการถอนที่รอโอน (" + r.withdrawals.length + ")</h3>";
       html += r.withdrawals.map((w, i) => `<div class="card">
         <div class="row"><b>${esc(w.name || "-")}</b><span class="muted">${esc(w.time)}</span></div>
         <div class="row"><span>สมาชิก ${esc(w.memberNumber)}</span><span class="amount">${esc(w.netAmount)} บาท</span></div>
         <div class="row"><span>ธนาคาร: ${esc(w.bank)}</span><span>เลขบัญชี: <b>${esc(w.account)}</b></span></div>
         <div class="muted">${esc(w.txId)} (ระบบหักยอดจากลูกค้าไว้แล้ว)</div>
-        <div style="margin-top:8px"><button class="btn" onclick="walletAct(this,'adminCompleteWithdrawal','withdrawals',${i})">✅ ดำเนินการเรียบร้อย (โอนแล้ว)</button></div>
+        ${adminRole === "full" ? `<div style="margin-top:8px"><button class="btn" onclick="walletAct(this,'adminCompleteWithdrawal','withdrawals',${i})">✅ ดำเนินการเรียบร้อย (โอนแล้ว)</button></div>` : ""}
       </div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
       box.innerHTML = html;
     } catch (e) { box.innerHTML = ""; setMsg(e.message); }
   }
   async function walletAct(btn, action, list, index) {
+    if (adminRole !== "full") return setMsg("ไม่มีสิทธิ์อนุมัติหรือยกเลิกรายการฝาก/ถอน");
     const item = walletData[list][index];
     const txId = item.txId;
     const questions = {
@@ -382,7 +390,16 @@
     btn.disabled = false;
   }
 
-  if (sessionStorage.getItem(TOKEN_KEY)) showApp();
+  async function restoreAdminSession() {
+    if (!sessionStorage.getItem(TOKEN_KEY)) return;
+    try {
+      const r = await api("adminGetSession");
+      if (r.status !== "success") return showLogin(r.message || "ตรวจสอบสิทธิ์ไม่สำเร็จ");
+      adminRole = r.role;
+      showApp();
+    } catch (e) { showLogin(e.message); }
+  }
+  restoreAdminSession();
 </script>
 </body>
 </html>
