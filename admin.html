@@ -237,10 +237,14 @@
         <div style="margin-top:8px"><b>สลิปที่สมาชิกส่ง (ตรวจเทียบกับคำขอนี้เอง):</b>
           ${(d.slips || []).map(s => `<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a></div>`).join("") || "<div class='muted'>ยังไม่มีสลิปในระบบ กรุณาตรวจใน LINE OA</div>"}
         </div>
-        ${adminRole === "full" ? `<div style="margin-top:8px;display:flex;gap:8px">
-          <button class="btn" ${d.status !== "รอตรวจสอบ" ? "disabled title='สถานะนี้ต้องตรวจสอบมือ'" : ""} onclick="walletAct(this,'adminConfirmDeposit','deposits',${i})">✅ ดำเนินการเรียบร้อย (เติมเครดิต)</button>
-          <button class="btn red" ${d.status !== "รอตรวจสอบ" ? "disabled" : ""} onclick="walletAct(this,'adminRejectDeposit','deposits',${i})">ยกเลิก</button>
-        </div>` : ""}</div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
+        ${adminRole === "full" && d.recoveryAvailable ? `<div class="muted">รายการนี้มีบันทึกเติมเงินค้าง สามารถตรวจสอบและกู้คืนโดยไม่เติมซ้ำ</div><div style="margin-top:8px"><button class="btn" onclick="walletAct(this,'adminRecoverDeposit','deposits',${i})">🔄 ตรวจสอบ/กู้คืนรายการ</button></div>` : ""}
+        ${adminRole === "full" && !d.recoveryAvailable && d.status === "รอตรวจสอบ" ? `<div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn" onclick="walletAct(this,'adminConfirmDeposit','deposits',${i})">✅ ดำเนินการเรียบร้อย (เติมเครดิต)</button>
+          <button class="btn red" onclick="walletAct(this,'adminRejectDeposit','deposits',${i})">ยกเลิก</button>
+        </div>` : ""}
+        ${d.status === "กำลังดำเนินการ" && !d.recoveryAvailable ? "<div class='muted'>ไม่พบบันทึกกู้คืนที่ปลอดภัย กรุณาตรวจยอดและแจ้งผู้ดูแล</div>" : ""}</div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
+      html += "<h3 style='margin-top:18px'>สลิปที่ยังไม่ได้ผูกกับคำขอ (" + (r.unlinkedSlips || []).length + ")</h3>";
+      html += (r.unlinkedSlips || []).map(s => `<div class="card"><div>สมาชิก ${esc(s.memberNumber)}</div><div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a></div><div class="muted">ตรวจยอดกับรายการโอนในบัญชีธนาคารก่อนดำเนินการ</div></div>`).join("") || "<div class='muted'>ไม่มีสลิปที่ตกค้าง</div>";
       html += "<h3 style='margin-top:18px'>รายการถอนที่รอโอน (" + r.withdrawals.length + ")</h3>";
       html += r.withdrawals.map((w, i) => `<div class="card">
         <div class="row"><b>${esc(w.name || "-")}</b><span class="muted">${esc(w.time)}</span></div>
@@ -258,6 +262,7 @@
     const txId = item.txId;
     const questions = {
       adminConfirmDeposit: "ตรวจบัญชีธนาคารแล้วว่าเงินเข้า " + item.netAmount + " บาทจริง และรายการโอนนี้ยังไม่เคยเติมเครดิตใช่หรือไม่? ยืนยันเติมเงินให้ " + item.name,
+      adminRecoverDeposit: "ตรวจสอบบันทึกและยอดปัจจุบันเพื่อกู้คืนรายการฝากนี้ โดยระบบจะไม่เติมเงินซ้ำใช่หรือไม่?",
       adminRejectDeposit: "ยกเลิกรายการฝากนี้?",
       adminCompleteWithdrawal: "โอนเงิน " + item.netAmount + " บาท ให้ " + item.name + " เรียบร้อยแล้วใช่หรือไม่?"
     };
