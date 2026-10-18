@@ -33,6 +33,10 @@
   .msg { margin: 8px 0; font-size: 14px; }
   .err { color: #c0392b; } .ok { color: #2e8b57; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; background: #fff3cd; font-size: 12px; }
+  dialog { border: 0; border-radius: 12px; padding: 20px; width: min(95vw, 600px); }
+  dialog::backdrop { background: #0008; }
+  dialog label { display: block; margin: 12px 0; }
+  textarea { width: 100%; min-height: 80px; font: inherit; padding: 8px; }
 </style>
 </head>
 <body>
@@ -62,6 +66,19 @@
   <section id="tab-settings" style="display:none"></section>
   <section id="tab-manage" style="display:none"></section>
 </main>
+
+<dialog id="slipEditDialog" aria-labelledby="slipEditTitle">
+  <h3 id="slipEditTitle">แก้ไขการผูกสลิป</h3>
+  <div id="slipEditInfo"></div>
+  <form onsubmit="event.preventDefault();saveSlipLink()">
+    <label>คำขอปลายทาง<select id="slipTarget"></select></label>
+    <label>เหตุผล (5–500 ตัวอักษร)<textarea id="slipReason" required minlength="5" maxlength="500"></textarea></label>
+    <div class="muted">เปลี่ยนเฉพาะการผูกสลิป ไม่เปลี่ยนยอดเงิน ไม่อนุมัติ และไม่ตรวจ EasySlip ซ้ำ</div>
+    <div id="slipEditMsg" class="msg err" role="alert"></div>
+    <button id="slipSaveBtn" class="btn blue" type="submit">บันทึกการผูกสลิป</button>
+    <button id="slipCancelBtn" class="btn gray" type="button" onclick="$('slipEditDialog').close()">ยกเลิก</button>
+  </form>
+</dialog>
 
 <script src="config.js?v=65"></script>
 <script>
@@ -221,12 +238,74 @@
 
   // ---------- ฝาก / ถอน ----------
   let walletData = { deposits: [], withdrawals: [] };
+  let editableSlips = [];
+  let selectedSlip = null;
+  let slipSaving = false;
+  function slipEditButton(slip, editable) {
+    if (adminRole !== "full" || !editable || !slip.messageId ||
+        slip.cleanup || (slip.verification && ["CHECKING", "CREDITED"].includes(slip.verification.state))) return "";
+    const index = editableSlips.push(slip) - 1;
+    return `<button class="btn blue" type="button" onclick="openSlipEditor(${index})">แก้ไขการผูกสลิป</button>`;
+  }
+  function openSlipEditor(index) {
+    if (adminRole !== "full" || slipSaving) return setMsg("ไม่มีสิทธิ์แก้ไข หรือกำลังบันทึก");
+    const slip = editableSlips[index];
+    if (!slip) return setMsg("ไม่พบสลิป กรุณาโหลดรายการใหม่");
+    selectedSlip = { ...slip };
+    const verification = slip.verification || {};
+    $("slipEditInfo").textContent = `สมาชิก ${slip.memberNumber} | รับสลิป ${slip.time} | ยอด ${verification.amount ?? "ไม่ทราบ"} บาท | โอน ${verification.date || "ไม่ทราบ"} | อ้างอิง ${verification.ref || "ไม่มี"} | คำขอเดิม ${slip.txId || "ยังไม่ผูก"}`;
+    const targets = walletData.deposits.filter(d => d.memberNumber === slip.memberNumber &&
+      d.status === "รอตรวจสอบ" && !d.recoveryAvailable && d.txId !== slip.txId);
+    $("slipTarget").innerHTML = '<option value="">แยกออก — เก็บไว้ในสลิปยังไม่ผูก (ไม่เติมเครดิต)</option>' +
+      targets.map(d => `<option value="${esc(d.txId)}">${esc(d.txId)} | ${esc(d.netAmount)} บาท | ${esc(d.time)}</option>`).join("");
+    $("slipReason").value = "";
+    $("slipEditMsg").textContent = "";
+    $("slipSaveBtn").disabled = false;
+    $("slipCancelBtn").disabled = false;
+    $("slipEditDialog").showModal();
+  }
+  async function saveSlipLink() {
+    if (adminRole !== "full" || !selectedSlip || slipSaving) return;
+    const reason = $("slipReason").value.trim();
+    if (reason.length < 5 || reason.length > 500) {
+      $("slipEditMsg").textContent = "กรุณาระบุเหตุผล 5–500 ตัวอักษร"; return;
+    }
+    const targetTxId = $("slipTarget").value;
+    if (!selectedSlip.txId && !targetTxId) {
+      $("slipEditMsg").textContent = "สลิปยังไม่ผูก กรุณาเลือกคำขอปลายทาง"; return;
+    }
+    if (!confirm(`ยืนยัน${targetTxId ? "ย้ายไป " + targetTxId : "แยกสลิปออกจากคำขอ"}? ไม่ได้เติมเครดิต`)) return;
+    slipSaving = true;
+    $("slipSaveBtn").disabled = $("slipCancelBtn").disabled = true;
+    try {
+      const r = await api("adminEditSlipLink", {
+        messageId: selectedSlip.messageId, expectedTxId: selectedSlip.txId || "", targetTxId, reason
+      });
+      if (r.status !== "success") { $("slipEditMsg").textContent = r.message; return; }
+      $("slipEditDialog").close();
+      selectedSlip = null;
+      setMsg(r.message, true);
+      await loadWallet();
+    } catch (e) { $("slipEditMsg").textContent = e.message; }
+    finally {
+      slipSaving = false;
+      $("slipSaveBtn").disabled = $("slipCancelBtn").disabled = false;
+    }
+  }
   async function loadWallet() {
     const box = $("tab-wallet"); box.innerHTML = "<div class='muted'>กำลังโหลด...</div>";
     try {
       const r = await api("adminGetWallet"); walletData = r;
       if (r.status !== "success") { box.innerHTML = ""; return setMsg(r.message); }
-      let html = "<h3>รายการฝากที่รอตรวจสอบ (" + r.deposits.length + ")</h3>";
+      editableSlips = [];
+      let html = `<details class="card"><summary>คู่มือจัดการสลิป / แก้สลิปผูกผิดคำขอ</summary>
+        <ol><li>เปิดสลิป เทียบเวลาโอน ยอด และเลขอ้างอิงกับเงินเข้าจริงก่อนเสมอ</li>
+        <li>กด “แก้ไขการผูกสลิป” ที่สลิปผิด เลือกแยกออก หรือย้ายไปคำขอรอตรวจของสมาชิกคนเดิม แล้วระบุเหตุผล</li>
+        <li>สลิปที่แยกออกจะอยู่ด้านล่างและไม่ถูกลูกค้าผูกกลับอัตโนมัติ สามารถกดแก้ไขเพื่อผูกใหม่โดยแอดมินได้</li>
+        <li>หลังแก้ ให้ตรวจสลิปที่เหลือและประวัติว่าไม่เคยเติมเครดิต แล้วกดอนุมัติแยกต่างหาก การแก้การผูกไม่เติมเครดิตและไม่เปลี่ยนผล EasySlip เก่า</li>
+        <li>กรณี 00:37 กับ 01:43 ผูกคำขอเดียว ให้แยกสลิป 00:37 ออก เก็บสลิป 01:43 ไว้ และตรวจประวัติสลิปเก่าก่อน ห้ามนำไปอนุมัติอีกโดยยังไม่ตรวจยอด</li></ol>
+        <p class="muted">เฉพาะสิทธิ์เต็ม • ห้ามย้ายสลิปที่กำลังตรวจหรือมีบันทึกเติมเงินแล้ว • ทุกการแก้เก็บในชีต DepositSlipLinkAudit • ไม่ต้องส่งสลิปซ้ำหรือโอนเพิ่ม</p></details>`;
+      html += "<h3>รายการฝากที่รอตรวจสอบ (" + r.deposits.length + ")</h3>";
       if (adminRole !== "full") html += "<div class='muted'>รหัสผ่านชุดนี้ดูรายละเอียดและการแจ้งเตือนได้ แต่อนุมัติหรือยกเลิกรายการฝาก/ถอนไม่ได้</div>";
       html += "<div class='muted'>ตรวจยอดเงินเข้าจริงในบัญชีธนาคารก่อนเติมเครดิตทุกครั้ง รูปสลิปไม่ใช่หลักฐานยืนยันเงินเข้า และห้ามใช้รายการโอนเดียวกันอนุมัติหลายคำขอ</div>";
       html += r.deposits.map((d, i) => `<div class="card">
@@ -234,6 +313,7 @@
         <div class="row"><span>สมาชิก ${esc(d.memberNumber)}</span><span class="muted">${esc(d.time)}</span></div>
         <div class="row"><span>ยอดที่ลูกค้าเติม</span><span class="amount">${esc(d.netAmount)} บาท</span></div>
         <div class="muted">${esc(d.txId)}</div>
+        <div>${(d.slips || []).map(s => `<div class="row"><span>สลิป ${esc(s.time)} | โอน ${esc(s.verification && s.verification.date || "ไม่ทราบ")} | อ้างอิง ${esc(s.verification && s.verification.ref || "ไม่มี")}</span>${slipEditButton(s, d.status === "รอตรวจสอบ" && !d.recoveryAvailable)}</div>`).join("")}</div>
         <div style="margin-top:8px"><b>สลิปที่สมาชิกส่ง (ตรวจเทียบกับคำขอนี้เอง):</b>
           ${(d.slips || []).map(s => `<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a><div class="muted">${esc(s.verification ? s.verification.state + ": " + s.verification.reason : "ยังไม่มีผลตรวจ EasySlip — ตรวจบัญชีธนาคารเอง")}</div>${s.verification && s.verification.ref ? `<div class="muted">อ้างอิง ${esc(s.verification.ref)} / ยอดจากสลิป ${esc(s.verification.amount)} บาท</div>` : ""}${s.verification && s.verification.registeredName !== undefined ? `<div class="muted">ชื่อที่สมัคร: ${esc(s.verification.registeredName || "ไม่พบชื่อ")} / ชื่อผู้โอน: ${esc(s.verification.senderNames && (s.verification.senderNames.th || s.verification.senderNames.en) || "ไม่มีข้อมูล")}</div>` : ""}</div>`).join("") || "<div class='muted'>ยังไม่มีสลิปในระบบ กรุณาตรวจใน LINE OA</div>"}
         </div>
@@ -244,6 +324,7 @@
         </div>` : ""}
         ${d.status === "กำลังดำเนินการ" && !d.recoveryAvailable ? "<div class='muted'>ไม่พบบันทึกกู้คืนที่ปลอดภัย กรุณาตรวจยอดและแจ้งผู้ดูแล</div>" : ""}</div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
       html += "<h3 style='margin-top:18px'>สลิปที่ยังไม่ได้ผูกกับคำขอ (" + (r.unlinkedSlips || []).length + ")</h3>";
+      html += (r.unlinkedSlips || []).map(s => `<div class="row"><span>สมาชิก ${esc(s.memberNumber)} | ${esc(s.time)} ${s.linkStatus === "ADMIN_UNLINKED" ? "(แอดมินแยกไว้ — ไม่ผูกกลับอัตโนมัติ)" : ""}</span>${slipEditButton(s, true)}</div>`).join("");
       html += (r.unlinkedSlips || []).map(s => `<div class="card"><div>สมาชิก ${esc(s.memberNumber)}</div><div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a></div><div class="muted">${esc(s.verification ? s.verification.reason : "ยังไม่มีผลตรวจ EasySlip")} — ตรวจยอดกับรายการโอนในบัญชีธนาคารก่อนดำเนินการ</div></div>`).join("") || "<div class='muted'>ไม่มีสลิปที่ตกค้าง</div>";
       html += "<h3 style='margin-top:18px'>รายการถอนที่รอโอน (" + r.withdrawals.length + ")</h3>";
       html += r.withdrawals.map((w, i) => `<div class="card">
