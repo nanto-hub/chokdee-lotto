@@ -239,9 +239,12 @@
         </div>
         <p style="color: #d9534f; font-weight: bold; font-size: 20px;">ยอดเงินนำฝาก: <span id="finalPriceText">0.00</span> บาท</p>
         <div id="qrImageSection">
+          <p style="font-weight:bold;">ชื่อบัญชีที่แสดงในระบบ: <span id="depositAccountName">-</span></p>
+          <p style="font-size:13px;color:#a94442;">โปรดตรวจชื่อผู้รับที่แสดงในแอปธนาคารก่อนยืนยันโอน ชื่อบนหน้านี้ไม่สามารถยืนยันได้ว่าเลขพร้อมเพย์ปลายทางเป็นบัญชีใด</p>
+          <p style="font-size:13px;">รหัสคำขอฝาก: <b id="depositTxId"></b></p>
           <img id="payQr" src="" alt="PromptPay QR">
           <p style="font-size:13px;color:#666;">คำขอรอแอดมินตรวจสอบ ไม่มีการนับถอยหลัง คุณสามารถกลับไปเลือกสลากได้ทันที หากโอนแล้วไม่ต้องสร้างคำขอซ้ำครับ</p>
-          <p style="font-size: 13px; color: #666; margin-top: 10px;">💡 บันทึกรูป/แคปหน้าจอ ไปสแกนในแอปธนาคาร โอนเสร็จแล้วคลิกปุ่มสีเขียวด้านล่างส่งรูปเข้าไลน์ได้เลยครับ!</p>
+          <p style="font-size: 13px; color: #666; margin-top: 10px;">💡 บันทึกรูป/แคปหน้าจอไปสแกนในแอปธนาคาร จากนั้นส่งสลิปเข้า LINE OA หากระบบขอรหัส ให้ส่งรหัสคำขอฝากด้านบนตามหลังรูปสลิป เพื่อผูกสลิปกับรายการให้ถูกต้อง</p>
           <a href="#" id="lineOaBtn" class="btn-order" style="background-color: #06C755; text-align: center; text-decoration: none; display: block; margin: 15px 0; padding: 12px; font-size:16px;">
             <i class="fa-brands fa-line"></i> 💬 ส่งสลิปยืนยันใน LINE OA Click
           </a>
@@ -674,6 +677,8 @@
     document.getElementById("summaryArea").style.display = "none";
     document.getElementById("qrContainer").style.display = "block";
     document.getElementById("finalPriceText").innerText = result.finalAmount;
+    document.getElementById("depositAccountName").innerText = result.recipientName || "ไม่พบค่าชื่อบัญชี";
+    document.getElementById("depositTxId").innerText = result.txId || "ไม่พบรหัสคำขอ";
     document.getElementById("payQr").src = result.qrCodeImgUrl;
   }
 
