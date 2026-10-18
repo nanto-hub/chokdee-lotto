@@ -235,15 +235,18 @@
       <div id="qrContainer">
         <h3 style="color: #28a745;">🎉 สร้างใบนําฝากสำเร็จ!</h3>
         <div class="alert-box">
-          <b>⚠️ สำคัญมาก:</b> กรุณาโอนเงินให้ <u>ตรงกับยอดที่คุณระบุ</u> แล้วส่งสลิปใน LINE OA แอดมินจะตรวจยอดเงินเข้าธนาคารก่อนเติมเครดิตตามยอดที่โอนจริง ระบบไม่เติมเครดิตอัตโนมัติจากสลิปครับ
+          <b>⚠️ สำคัญมาก:</b> กรุณาโอนเงินให้ <u>ตรงกับยอดที่คุณระบุ</u> แล้วส่งสลิปใน LINE OA ระบบจะเติมเครดิตอัตโนมัติเมื่อ EasySlip ยืนยันยอด บัญชีผู้รับ และสลิปไม่ซ้ำได้ครบ หากตรวจไม่ได้หรือโควต้าหมด แอดมินจะตรวจยอดเงินจริงให้ครับ
         </div>
         <p style="color: #d9534f; font-weight: bold; font-size: 20px;">ยอดเงินนำฝาก: <span id="finalPriceText">0.00</span> บาท</p>
         <div id="qrImageSection">
+          <p class="alert-box" role="alert" style="font-weight:bold;">กรุณาเติมเงินโดยบัญชีชื่อ <span id="depositSenderName">-</span></p>
+          <p style="font-size:13px;color:#a94442;">ชื่อบัญชีผู้โอนต้องตรงกับชื่อที่สมัคร หากชื่อไม่ตรง ถูกปิดบัง หรือยืนยันไม่ได้ แอดมินจะตรวจสอบก่อนเติมเครดิต</p>
           <p style="font-weight:bold;">ชื่อบัญชีที่แสดงในระบบ: <span id="depositAccountName">-</span></p>
           <p style="font-size:13px;color:#a94442;">โปรดตรวจชื่อผู้รับที่แสดงในแอปธนาคารก่อนยืนยันโอน ชื่อบนหน้านี้ไม่สามารถยืนยันได้ว่าเลขพร้อมเพย์ปลายทางเป็นบัญชีใด</p>
           <p style="font-size:13px;">รหัสคำขอฝาก: <b id="depositTxId"></b></p>
           <img id="payQr" src="" alt="PromptPay QR">
-          <p style="font-size:13px;color:#666;">คำขอรอแอดมินตรวจสอบ ไม่มีการนับถอยหลัง คุณสามารถกลับไปเลือกสลากได้ทันที หากโอนแล้วไม่ต้องสร้างคำขอซ้ำครับ</p>
+          <p style="font-size:13px;color:#666;">ไม่มีการนับถอยหลัง คุณสามารถกลับไปเลือกสลากได้ทันที รอผลตรวจใน LINE OA หากยังไม่ได้เครดิตให้รอแอดมินตรวจสอบ ไม่ต้องสร้างคำขอซ้ำครับ</p>
+          <p style="font-size:13px;color:#a94442;">รายการฝากเงินไม่มีเวลาหมดอายุ แต่สลากในตะกร้ายังมีเวลาจอง 5 นาทีแยกต่างหาก การออกไปเติมเงินไม่หยุดเวลาจอง เมื่อกลับมาระบบจะคืนเฉพาะสลากที่ยังจองอยู่ หากหมดเวลาต้องเลือกใหม่ครับ</p>
           <p style="font-size: 13px; color: #666; margin-top: 10px;">💡 บันทึกรูป/แคปหน้าจอไปสแกนในแอปธนาคาร จากนั้นส่งสลิปเข้า LINE OA หากระบบขอรหัส ให้ส่งรหัสคำขอฝากด้านบนตามหลังรูปสลิป เพื่อผูกสลิปกับรายการให้ถูกต้อง</p>
           <a href="#" id="lineOaBtn" class="btn-order" style="background-color: #06C755; text-align: center; text-decoration: none; display: block; margin: 15px 0; padding: 12px; font-size:16px;">
             <i class="fa-brands fa-line"></i> 💬 ส่งสลิปยืนยันใน LINE OA Click
@@ -344,6 +347,8 @@
   
   let cartExpireTimerInterval = null;
   let cartExpirationTime = null;
+  let cartBusy = false;
+  let cartRestorePromise = null;
   let pendingPrizeClaimKeys = [];
   let pendingPrizeTicketReturnKeys = [];
 
@@ -473,7 +478,7 @@
     if (isIdTokenExpired() && forceRelogin()) throw new Error("เซสชัน LINE หมดอายุ กำลังเข้าสู่ระบบใหม่...");
     const idToken = liff.getIDToken();
     if (!idToken) throw new Error("ไม่พบ LINE ID token");
-    const retryableReadActions = new Set(["getDashboard", "getProfile", "getMyTickets", "checkPendingDeposit", "search"]);
+    const retryableReadActions = new Set(["getDashboard", "getProfile", "getMyTickets", "getReservedTickets", "checkPendingDeposit", "search"]);
     const maxAttempts = retryableReadActions.has(action) ? 3 : 1;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -561,6 +566,7 @@
         document.getElementById("menuProfile").style.display = "block";
         document.getElementById("menuTickets").style.display = "block";
         
+        await restoreReservedCart();
         void loadUserDashboard();
       } else {
         if (liff.isInClient()) {
@@ -678,6 +684,7 @@
     document.getElementById("qrContainer").style.display = "block";
     document.getElementById("finalPriceText").innerText = result.finalAmount;
     document.getElementById("depositAccountName").innerText = result.recipientName || "ไม่พบค่าชื่อบัญชี";
+    document.getElementById("depositSenderName").innerText = result.senderName || "ไม่พบชื่อที่สมัคร กรุณาติดต่อแอดมินก่อนโอน";
     document.getElementById("depositTxId").innerText = result.txId || "ไม่พบรหัสคำขอ";
     document.getElementById("payQr").src = result.qrCodeImgUrl;
   }
@@ -1024,7 +1031,7 @@
       if (timeLeft <= 0) {
         clearInterval(cartExpireTimerInterval);
         if (display) display.innerText = "⏱️ เวลาจองหมดแล้ว";
-        clearCartDueToTimeout();
+        restoreReservedCart();
       } else {
         let m = Math.floor(timeLeft / 60);
         let s = timeLeft % 60;
@@ -1035,17 +1042,79 @@
     }, 1000);
   }
 
-  // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
-  async function clearCartDueToTimeout() {
-    if (cart.length > 0) {
-      let ticketKeysToUnlock = cart.map(item => item.uniqueKey);
-      apiPost("unlockTicket", { tickets: ticketKeysToUnlock }).catch(e=>{});
+  function cartStorageKey() {
+    const token = liff.getDecodedIDToken();
+    if (!token || !token.sub) throw new Error("ไม่พบสมาชิกสำหรับบันทึกตะกร้า");
+    return "reservedCart:" + token.sub;
+  }
 
-      cart = [];
-      updateCartUI();
-      alert("⏱️ เวลาจองสลากในตะกร้าหมดแล้ว (5 นาที) ระบบได้คืนสลากกลับสู่แผงเพื่อให้ลูกค้าท่านอื่นครับ");
-      location.reload();
+  function rememberCart() {
+    try {
+      localStorage.setItem(cartStorageKey(), JSON.stringify(cart.map(item => ({
+        uniqueKey: item.uniqueKey, ticketId: item.ticketId
+      }))));
+    } catch (error) {
+      console.warn("Cart reminder storage unavailable:", error);
     }
+  }
+
+  function applyReservedCart(tickets, serverNow) {
+    if (!Array.isArray(tickets) || !Number.isFinite(serverNow) ||
+        tickets.some(item => !item || typeof item.uniqueKey !== "string" ||
+          typeof item.ticketId !== "string" || typeof item.drawDate !== "string" ||
+          typeof item.setNo !== "string" || !Number.isFinite(item.expiresAt)))
+      throw new Error("ข้อมูลตะกร้าจากระบบไม่ถูกต้อง กรุณาโหลดใหม่");
+    const offset = Date.now() - serverNow;
+    cart = tickets.map(item => ({ ...item, expiresAt: item.expiresAt + offset }));
+    cartExpirationTime = cart.length ? Math.min(...cart.map(item => item.expiresAt)) : null;
+    rememberCart();
+    updateCartUI();
+    clearInterval(cartExpireTimerInterval);
+    document.getElementById("cartTimerDisplay").innerText = "";
+    if (cart.length) startCartTimer();
+    document.querySelectorAll(".btn-buy").forEach(button => {
+      const inCart = cart.some(item =>
+        item.ticketId === button.dataset.ticketId && item.drawDate === button.dataset.drawDate);
+      button.disabled = inCart;
+      button.innerHTML = inCart ? "อยู่ในตะกร้า" : "หยิบใส่ตะกร้า";
+      button.style.backgroundColor = inCart ? "#888" : "";
+    });
+  }
+
+  async function restoreReservedCart() {
+    if (cartRestorePromise) return cartRestorePromise;
+    if (cartBusy || !checkAuthStatus()) return false;
+    cartRestorePromise = (async () => {
+      try {
+        let previous = cart;
+        if (!previous.length) {
+          try {
+            const stored = JSON.parse(localStorage.getItem(cartStorageKey()) || "[]");
+            if (Array.isArray(stored)) previous = stored.filter(item => item && typeof item.uniqueKey === "string");
+          } catch (error) {
+            console.warn("Cart reminder read failed:", error);
+          }
+        }
+        const result = await apiPost("getReservedTickets");
+        if (result.status !== "success") throw new Error(result.message || "โหลดตะกร้าไม่สำเร็จ");
+        const missing = previous.filter(item => !result.tickets.some(ticket => ticket.uniqueKey === item.uniqueKey));
+        applyReservedCart(result.tickets, result.serverNow);
+        if (missing.length) {
+          closeOrderConfirm();
+          alert("สลากต่อไปนี้หมดเวลาจอง หรือไม่อยู่ในรายการจองแล้ว กรุณาเลือกใหม่: " +
+            missing.map(item => item.ticketId).join(", "));
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error("Cart restoration failed:", error);
+        document.getElementById("cartTimerDisplay").innerText = "ตรวจสอบตะกร้าไม่สำเร็จ กรุณาลองใหม่ก่อนสั่งซื้อ";
+        alert(error.message || "ตรวจสอบตะกร้าไม่สำเร็จ");
+        return false;
+      }
+    })();
+    try { return await cartRestorePromise; }
+    finally { cartRestorePromise = null; }
   }
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS และแก้ปัญหา "Failed to fetch"
@@ -1055,6 +1124,9 @@
       try { liffLogin(); } catch (e) { location.replace(location.origin + location.pathname + "?openExternalBrowser=1"); }
       return;
     }
+    if (cartBusy || !await restoreReservedCart() || cartBusy) return;
+    cartBusy = true;
+    try {
 
     let sameNumTickets = rawTicketsData.filter(t => t.ticketId === ticketId && t.drawDate === drawDate);
     let ticketKeysToLock = [];
@@ -1081,7 +1153,8 @@
     }
 
     try {
-      const result = await apiPost("lockTicket", { tickets: ticketKeysToLock });
+      const allKeys = [...new Set([...cart.map(item => item.uniqueKey), ...ticketKeysToLock])];
+      const result = await apiPost("lockTicket", { tickets: allKeys });
 
       if (result.status !== "success") {
         alert(result.message || "จองสลากไม่สำเร็จ กรุณาลองใหม่");
@@ -1093,6 +1166,9 @@
         if (result.code === "TICKET_UNAVAILABLE") await doSearch();
         return; 
       }
+      if (!Number.isFinite(result.expiresAt) || !Number.isFinite(result.serverNow))
+        throw new Error("ระบบไม่ส่งเวลาจองกลับมา กรุณาโหลดตะกร้าใหม่");
+      cartExpirationTime = result.expiresAt + Date.now() - result.serverNow;
     } catch (e) {
       console.error("Fetch lock error:", e);
       alert(e.message || "เชื่อมต่อขัดข้อง ไม่สามารถจองสลากได้ กรุณาลองใหม่อีกครั้งครับ");
@@ -1111,8 +1187,9 @@
       }
     });
 
+    cart.forEach(item => { item.expiresAt = cartExpirationTime; });
+    rememberCart();
     updateCartUI();
-    cartExpirationTime = Date.now() + 5 * 60 * 1000;
     startCartTimer();
 
     if (btn) {
@@ -1120,6 +1197,7 @@
       btn.innerHTML  = '<i class="fa-solid fa-basket-shopping"></i> อยู่ในตะกร้า';
       btn.style.backgroundColor = "#888";
     }
+    } finally { cartBusy = false; }
   }
 
   function updateCartUI() {
@@ -1139,14 +1217,18 @@
   }
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
-  function removeFromCart(uniqueKey) {
+  async function removeFromCart(uniqueKey) {
+    if (cartBusy || !await restoreReservedCart() || cartBusy) return;
+    cartBusy = true;
+    try {
+      const result = await apiPost("unlockTicket", { tickets: [uniqueKey] });
+      if (result.status !== "success") throw new Error(result.message || "นำสลากออกไม่สำเร็จ");
     let removedItem = cart.find(item => item.uniqueKey === uniqueKey);
     cart = cart.filter(item => item.uniqueKey !== uniqueKey);
+    rememberCart();
     updateCartUI();
 
     if (removedItem) {
-      apiPost("unlockTicket", { tickets: [uniqueKey] }).catch(e=>{});
-
       let btn = document.getElementById(ticketGroupButtonId(removedItem.ticketId, removedItem.drawDate));
       if (btn && !cart.some(c => c.ticketId === removedItem.ticketId && c.drawDate === removedItem.drawDate)) {
         btn.disabled  = false;
@@ -1159,6 +1241,10 @@
       clearInterval(cartExpireTimerInterval);
       document.getElementById("cartTimerDisplay").innerText = "";
     }
+    } catch (error) {
+      console.error("Remove reserved ticket failed:", error);
+      alert(error.message || "นำสลากออกไม่สำเร็จ");
+    } finally { cartBusy = false; }
   }
 
   function pickShipping(value) {
@@ -1191,6 +1277,16 @@
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function submitOrder(confirmed) {
+    if (cartBusy || !await restoreReservedCart() || cartBusy) return;
+    cartBusy = true;
+    try { await submitOrderCore(confirmed); }
+    finally {
+      cartBusy = false;
+      if (cart.length) startCartTimer();
+    }
+  }
+
+  async function submitOrderCore(confirmed) {
     if (!checkAuthStatus()) { 
       alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนสั่งซื้อครับ"); 
       liff.login(); 
@@ -1246,6 +1342,12 @@
         const result = await apiPost("reserveTickets", { data: { tickets: ticketKeys } });
 
         if (result.status === "success") {
+          if (!Number.isFinite(result.expiresAt) || !Number.isFinite(result.serverNow))
+            throw new Error("ไม่พบเวลาจองล่าสุด กรุณาโหลดตะกร้าใหม่");
+          cartExpirationTime = result.expiresAt + Date.now() - result.serverNow;
+          cart.forEach(item => { item.expiresAt = cartExpirationTime; });
+          rememberCart();
+          startCartTimer();
           alert("⚠️ ยอดเงินไม่พอครับ ระบบได้ล็อกสลากชุดนี้ไว้ให้ 5 นาที กรุณาทำรายการเติมเงินครับ");
           document.getElementById("depositInputAmount").value = Math.ceil(totalCost - totalWallet);
           openDepositView();
@@ -1288,6 +1390,8 @@
         return;
       }
       orderSucceeded = true;
+      cart = [];
+      rememberCart();
       alert(result.message);
       location.reload();
     } catch (e) {
@@ -1648,13 +1752,10 @@
     }
   }
 
-  window.addEventListener('beforeunload', function() {
-    if (cart.length > 0 && typeof liff !== "undefined" && liff.isLoggedIn()) {
-      let ticketKeysToUnlock = cart.map(item => item.uniqueKey);
-      let payload = JSON.stringify({ action: "unlockTicket", idToken: liff.getIDToken(), tickets: ticketKeysToUnlock });
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(BACKEND_URL, payload);
-      }
+  document.addEventListener("visibilitychange", function() {
+    if (document.visibilityState === "visible" && checkAuthStatus()) {
+      void restoreReservedCart();
+      void loadUserDashboard();
     }
   });
 
