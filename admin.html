@@ -235,7 +235,7 @@
         <div class="row"><span>ยอดที่ลูกค้าเติม</span><span class="amount">${esc(d.netAmount)} บาท</span></div>
         <div class="muted">${esc(d.txId)}</div>
         <div style="margin-top:8px"><b>สลิปที่สมาชิกส่ง (ตรวจเทียบกับคำขอนี้เอง):</b>
-          ${(d.slips || []).map(s => `<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a></div>`).join("") || "<div class='muted'>ยังไม่มีสลิปในระบบ กรุณาตรวจใน LINE OA</div>"}
+          ${(d.slips || []).map(s => `<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a><div class="muted">${esc(s.verification ? s.verification.state + ": " + s.verification.reason : "ยังไม่มีผลตรวจ EasySlip — ตรวจบัญชีธนาคารเอง")}</div>${s.verification && s.verification.ref ? `<div class="muted">อ้างอิง ${esc(s.verification.ref)} / ยอดจากสลิป ${esc(s.verification.amount)} บาท</div>` : ""}${s.verification && s.verification.registeredName !== undefined ? `<div class="muted">ชื่อที่สมัคร: ${esc(s.verification.registeredName || "ไม่พบชื่อ")} / ชื่อผู้โอน: ${esc(s.verification.senderNames && (s.verification.senderNames.th || s.verification.senderNames.en) || "ไม่มีข้อมูล")}</div>` : ""}</div>`).join("") || "<div class='muted'>ยังไม่มีสลิปในระบบ กรุณาตรวจใน LINE OA</div>"}
         </div>
         ${adminRole === "full" && d.recoveryAvailable ? `<div class="muted">รายการนี้มีบันทึกเติมเงินค้าง สามารถตรวจสอบและกู้คืนโดยไม่เติมซ้ำ</div><div style="margin-top:8px"><button class="btn" onclick="walletAct(this,'adminRecoverDeposit','deposits',${i})">🔄 ตรวจสอบ/กู้คืนรายการ</button></div>` : ""}
         ${adminRole === "full" && !d.recoveryAvailable && d.status === "รอตรวจสอบ" ? `<div style="margin-top:8px;display:flex;gap:8px">
@@ -244,7 +244,7 @@
         </div>` : ""}
         ${d.status === "กำลังดำเนินการ" && !d.recoveryAvailable ? "<div class='muted'>ไม่พบบันทึกกู้คืนที่ปลอดภัย กรุณาตรวจยอดและแจ้งผู้ดูแล</div>" : ""}</div>`).join("") || "<div class='muted'>ไม่มีรายการ</div>";
       html += "<h3 style='margin-top:18px'>สลิปที่ยังไม่ได้ผูกกับคำขอ (" + (r.unlinkedSlips || []).length + ")</h3>";
-      html += (r.unlinkedSlips || []).map(s => `<div class="card"><div>สมาชิก ${esc(s.memberNumber)}</div><div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a></div><div class="muted">ตรวจยอดกับรายการโอนในบัญชีธนาคารก่อนดำเนินการ</div></div>`).join("") || "<div class='muted'>ไม่มีสลิปที่ตกค้าง</div>";
+      html += (r.unlinkedSlips || []).map(s => `<div class="card"><div>สมาชิก ${esc(s.memberNumber)}</div><div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">เปิดสลิป ${esc(s.time)}</a></div><div class="muted">${esc(s.verification ? s.verification.reason : "ยังไม่มีผลตรวจ EasySlip")} — ตรวจยอดกับรายการโอนในบัญชีธนาคารก่อนดำเนินการ</div></div>`).join("") || "<div class='muted'>ไม่มีสลิปที่ตกค้าง</div>";
       html += "<h3 style='margin-top:18px'>รายการถอนที่รอโอน (" + r.withdrawals.length + ")</h3>";
       html += r.withdrawals.map((w, i) => `<div class="card">
         <div class="row"><b>${esc(w.name || "-")}</b><span class="muted">${esc(w.time)}</span></div>
