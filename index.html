@@ -175,7 +175,7 @@
         <button class="btn-wallet btn-withdraw" onclick="openWithdrawView()"><i class="fa-solid fa-money-bill-transfer"></i> แจ้งถอน</button>
       </div>
       <div class="wallet-activity">
-        <div style="font-weight:bold; margin-bottom:6px;">สถานะการถอนเงินล่าสุด</div>
+        <div style="font-weight:bold; margin-bottom:6px;">รายการเดินบัญชีล่าสุด</div>
         <div id="withdrawalStatusText" aria-live="polite" style="color:#eee; font-size:13px;">กำลังโหลดสถานะ...</div>
         <button type="button" id="walletHistoryToggle" class="btn-back" aria-expanded="false" onclick="toggleWalletHistory()">📜 แสดงประวัติเดินบัญชี</button>
         <div id="walletHistoryPanel" style="display:none; margin-top:8px;">
@@ -298,7 +298,7 @@
       </div>
       <div id="myTicketsList"></div>
       <button type="button" id="ticketHistoryToggle" onclick="toggleTicketHistory()" aria-expanded="false">🗓️ แสดงประวัติการซื้อสลากงวดก่อน</button>
-      <p style="font-size:12px;color:#666;">ประวัติงวดก่อนโหลดเมื่อเปิดดู ครั้งละ 5 งวด ข้อมูลเดิมยังอยู่ครบ ไม่มีการย้ายหรือลบ</p>
+      <p style="font-size:12px;color:#666;">ประวัติงวดก่อนโหลดเมื่อเปิดดู ครั้งละ 5 งวด</p>
       <div id="myTicketHistory" hidden></div>
       <button type="button" id="ticketHistoryMore" onclick="loadTicketHistory()" hidden>ดูงวดก่อนหน้าเพิ่มเติม</button>
       <button type="button" class="btn-back" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
@@ -813,14 +813,14 @@
           walletHistoryHasMore = Boolean(result.hasMore);
           walletHistoryLoaded = true;
         }
-        const latest = result.latestWithdrawal;
+        const latest = result.latestTransaction;
         statusElement.innerText = latest
-          ? `${latest.status} · ${Number(latest.amount).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท · ${latest.date}`
-          : "ยังไม่มีรายการถอนเงิน";
+          ? `${walletTransactionLabel(latest.type)} · ${latest.status} · ${Number(latest.amount).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท · ${latest.date}`
+          : "ยังไม่มีรายการเดินบัญชี";
         if (includeTransactions) renderWalletHistory(result.transactions || [], append);
       } catch (error) {
         console.error("Wallet activity load failed:", error);
-        statusElement.innerText = "โหลดสถานะการถอนเงินไม่สำเร็จ กรุณาลองใหม่";
+        statusElement.innerText = "โหลดรายการเดินบัญชีล่าสุดไม่สำเร็จ กรุณาลองใหม่";
         if (append) alert(error.message || "โหลดประวัติเพิ่มเติมไม่สำเร็จ กรุณาลองใหม่");
         else if (document.getElementById("walletHistoryPanel").style.display !== "none")
           document.getElementById("walletHistoryList").innerHTML =
@@ -848,6 +848,10 @@
     void loadWalletActivity();
   }
 
+  function walletTransactionLabel(type) {
+    return String(type || "").replace(/^ค่าบริการฝากตรวจ/, "ค่าบริการเช่าพื้นที่จัดเก็บ");
+  }
+
   function renderWalletHistory(transactions, append = false) {
     const list = document.getElementById("walletHistoryList");
     if (!transactions.length && !append) {
@@ -862,7 +866,7 @@
         transaction.type === "ขึ้นเงินรางวัล" || /^ค่าคอมมิชชั่นผู้แนะนำ/.test(transaction.type);
       const amountText = `${isCredit ? "+" : "-"}${Math.abs(amount).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`;
       return `<div class="wallet-activity-row">
-        <div><div>${escapeHtml(transaction.type)}</div><div class="wallet-activity-meta">${escapeHtml(transaction.date)} · ${escapeHtml(transaction.status)}</div></div>
+        <div><div>${escapeHtml(walletTransactionLabel(transaction.type))}</div><div class="wallet-activity-meta">${escapeHtml(transaction.date)} · ${escapeHtml(transaction.status)}</div></div>
         <div class="wallet-activity-amount" style="color:${isCredit ? "#9be7a5" : "#ffd2d2"};">${amountText}</div>
       </div>`;
     }).join("");
@@ -1266,7 +1270,7 @@
       }
       return;
     }
-    if (cartBusy || !await restoreReservedCart() || cartBusy) return;
+    if (cartBusy || cartRestorePromise) return;
     cartBusy = true;
     try {
 
@@ -1375,8 +1379,18 @@
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function removeFromCart(uniqueKey) {
-    if (cartBusy || !await restoreReservedCart() || cartBusy) return;
+    if (cartBusy || cartRestorePromise) return;
+    if (!checkAuthStatus()) {
+      liffLogin();
+      return;
+    }
     cartBusy = true;
+    const tag = Array.from(document.getElementById("selectedLotsContainer").children)
+      .find(node => node.dataset.key === uniqueKey);
+    if (tag) {
+      tag.setAttribute("aria-busy", "true");
+      tag.style.opacity = "0.5";
+    }
     try {
       const result = await apiPost("unlockTicket", { tickets: [uniqueKey] });
       if (result.status !== "success") throw new Error(result.message || "นำสลากออกไม่สำเร็จ");
@@ -1401,7 +1415,13 @@
     } catch (error) {
       console.error("Remove reserved ticket failed:", error);
       alert(error.message || "นำสลากออกไม่สำเร็จ");
-    } finally { cartBusy = false; }
+    } finally {
+      cartBusy = false;
+      if (tag) {
+        tag.removeAttribute("aria-busy");
+        tag.style.opacity = "";
+      }
+    }
   }
 
   function pickShipping(value) {
