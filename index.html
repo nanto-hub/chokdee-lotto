@@ -145,7 +145,7 @@
   <div class="main-container">
     <div id="status" class="status-msg">กำลังตั้งค่าการเชื่อมต่อ...</div>
     <div id="lineFallbackNotice" class="line-fallback-notice" role="note">
-      <span id="lineFallbackMessage">หากติดต่อ LINE OA ไม่ได้ กรุณาติดต่อแอดมินทาง </span>
+      <span id="lineFallbackMessage">หากติดต่อ <a href="https://line.me/R/ti/p/@908iwiki" target="_blank" rel="noopener noreferrer">LINE OA</a> ไม่ได้ กรุณาติดต่อแอดมินทาง </span>
       <a href="https://www.facebook.com/profile.php?id=61595235477425" target="_blank" rel="noopener noreferrer">Facebook</a>
     </div>
     <div id="referralLinkSection" class="line-fallback-notice" style="display:none;">
@@ -433,7 +433,7 @@
   function showLineFallbackNotice() {
     const message = document.getElementById("lineFallbackMessage");
     if (message) {
-      message.innerText = "⚠️ เชื่อมต่อ LINE ไม่สำเร็จ ลองใช้เมนู ⋮ หรือ … เลือกเปิดในเบราว์เซอร์เริ่มต้น หรือคัดลอกลิงก์ร้านไปเปิดเอง หากยังไม่ได้กรุณาติดต่อแอดมินทาง ";
+      message.innerHTML = `⚠️ เชื่อมต่อ <a href="${escapeHtml(LINE_OA_CHAT_URL)}" target="_blank" rel="noopener noreferrer">LINE OA</a> ไม่สำเร็จ ลองใช้เมนู ⋮ หรือ … เลือกเปิดในเบราว์เซอร์เริ่มต้น หรือคัดลอกลิงก์ร้านไปเปิดเอง หากยังไม่ได้กรุณาติดต่อแอดมินทาง `;
       const notice = document.getElementById("lineFallbackNotice");
       if (!document.getElementById("copyStoreLink")) {
         const button = document.createElement("button");
