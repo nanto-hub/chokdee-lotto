@@ -4,18 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>โชคดีล็อตเตอรี่</title>
-  <script>
-    // เบราว์เซอร์ในแอป LINE (ไม่ใช่ LIFF) มักค้าง จึงสั่งให้เปิดในเบราว์เซอร์ภายนอก
-    (function () {
-      var ua = navigator.userAgent || "";
-      var p = new URLSearchParams(location.search);
-      if (/ Line\//i.test(ua) && !/LIFF/i.test(ua) && !p.has("openExternalBrowser") && !p.has("liff.state") && !p.has("code")) {
-        p.set("openExternalBrowser", "1");
-        location.replace(location.pathname + "?" + p.toString() + location.hash);
-      }
-    })();
-  </script>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script async id="lineSdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
@@ -308,7 +297,10 @@
         <span id="myTicketCountBadge" style="background: #d9534f; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">0 ใบ</span>
       </div>
       <div id="myTicketsList"></div>
-      <div id="myTicketHistory"></div>
+      <button type="button" id="ticketHistoryToggle" onclick="toggleTicketHistory()" aria-expanded="false">🗓️ แสดงประวัติการซื้อสลากงวดก่อน</button>
+      <p style="font-size:12px;color:#666;">ประวัติงวดก่อนโหลดเมื่อเปิดดู ครั้งละ 5 งวด ข้อมูลเดิมยังอยู่ครบ ไม่มีการย้ายหรือลบ</p>
+      <div id="myTicketHistory" hidden></div>
+      <button type="button" id="ticketHistoryMore" onclick="loadTicketHistory()" hidden>ดูงวดก่อนหน้าเพิ่มเติม</button>
       <button type="button" class="btn-back" onclick="closeMyTicketsSection()">⬅️ กลับหน้าแผงหวย</button>
       <div id="prizeClaimModal" class="claim-modal" role="dialog" aria-modal="true" aria-labelledby="prizeClaimTitle" hidden>
         <div class="claim-modal-card">
@@ -342,8 +334,20 @@
   let cart = [];
   let rawTicketsData = [];
   let storeConfig = null;
-  let walletActivityData = null;
+  let lineSessionReady = false;
   let walletActivityRequest = null;
+  const pendingReads = new Map();
+  let walletHistoryOffset = 0;
+  let walletHistoryHasMore = false;
+  let walletHistoryLoaded = false;
+  let ticketHistoryOffset = 0;
+  let ticketHistoryHasMore = false;
+  let ticketHistoryLoaded = false;
+  let ticketHistoryRequest = null;
+  let myTicketsRequest = null;
+  let dashboardRequest = null;
+  let storefrontPreview = false;
+  let storefrontReady = false;
   
   let cartExpireTimerInterval = null;
   let cartExpirationTime = null;
@@ -423,12 +427,35 @@
   }
 
   function checkAuthStatus() {
-    return typeof liff !== "undefined" && liff.isLoggedIn() && Boolean(liff.getIDToken());
+    return lineSessionReady && typeof liff !== "undefined" && liff.isLoggedIn() && Boolean(liff.getIDToken());
   }
 
   function showLineFallbackNotice() {
     const message = document.getElementById("lineFallbackMessage");
-    if (message) message.innerText = "⚠️ ไม่สามารถเชื่อมต่อ LINE ได้ในขณะนี้ หาก LINE OA ใช้งานไม่ได้ กรุณาติดต่อแอดมินทาง ";
+    if (message) {
+      message.innerText = "⚠️ เชื่อมต่อ LINE ไม่สำเร็จ ลองใช้เมนู ⋮ หรือ … เลือกเปิดในเบราว์เซอร์เริ่มต้น หรือคัดลอกลิงก์ร้านไปเปิดเอง หากยังไม่ได้กรุณาติดต่อแอดมินทาง ";
+      const notice = document.getElementById("lineFallbackNotice");
+      if (!document.getElementById("copyStoreLink")) {
+        const button = document.createElement("button");
+        button.id = "copyStoreLink";
+        button.type = "button";
+        button.innerText = "คัดลอกลิงก์ร้าน";
+        button.onclick = copyStoreLink;
+        notice.appendChild(button);
+      }
+    }
+  }
+
+  async function copyStoreLink() {
+    const url = location.origin + location.pathname;
+    try {
+      if (!navigator.clipboard || !window.isSecureContext) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(url);
+      alert("คัดลอกลิงก์ร้านแล้ว เปิดในเบราว์เซอร์ที่คุณใช้งานได้เลยครับ");
+    } catch (error) {
+      console.warn("Store link clipboard unavailable:", error);
+      window.prompt("คัดลอกลิงก์นี้ไปเปิดในเบราว์เซอร์ที่คุณใช้งาน", url);
+    }
   }
 
   function updateHeaderWalletBalance(balance) {
@@ -473,12 +500,24 @@
     return true;
   }
 
-  async function apiPost(action, fields = {}) {
+  function apiPost(action, fields = {}) {
+    const reads = new Set(["getDashboard", "getProfile", "getMyTickets", "getMyTicketHistory",
+      "getReservedTickets", "getWalletActivity", "checkPendingDeposit", "search"]);
+    if (!reads.has(action)) return apiPostRequest(action, fields);
+    const token = typeof liff !== "undefined" && liff.isLoggedIn() ? liff.getIDToken() : "";
+    const key = JSON.stringify([token, action, fields]);
+    if (pendingReads.has(key)) return pendingReads.get(key);
+    const request = apiPostRequest(action, fields).finally(() => pendingReads.delete(key));
+    pendingReads.set(key, request);
+    return request;
+  }
+
+  async function apiPostRequest(action, fields = {}) {
     if (typeof liff === "undefined" || !liff.isLoggedIn()) throw new Error("กรุณาเข้าสู่ระบบ LINE");
     if (isIdTokenExpired() && forceRelogin()) throw new Error("เซสชัน LINE หมดอายุ กำลังเข้าสู่ระบบใหม่...");
     const idToken = liff.getIDToken();
     if (!idToken) throw new Error("ไม่พบ LINE ID token");
-    const retryableReadActions = new Set(["getDashboard", "getProfile", "getMyTickets", "getReservedTickets", "checkPendingDeposit", "search"]);
+    const retryableReadActions = new Set(["getDashboard", "getProfile", "getMyTickets", "getMyTicketHistory", "getReservedTickets", "getWalletActivity", "checkPendingDeposit", "search"]);
     const maxAttempts = retryableReadActions.has(action) ? 3 : 1;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -521,27 +560,53 @@
     const lineOaBtn = document.getElementById("lineOaBtn");
     if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
     document.getElementById("searchAreaTop").style.display = "block";
+    showStorefrontPreview();
+    void doSearch(true, true);
     await initLiffAndWait();
-    doSearch();
+    if (checkAuthStatus()) void doSearch();
 
     if (statusElem && statusElem.dataset.dashboardError !== "true") statusElem.style.display = "none";
+  }
+
+  function waitForLineSdk() {
+    if (typeof liff !== "undefined") return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const script = document.getElementById("lineSdk");
+      if (!script) { reject(new Error("LINE SDK element missing")); return; }
+      const cleanup = () => {
+        clearTimeout(timer);
+        script.removeEventListener("load", loaded);
+        script.removeEventListener("error", failed);
+      };
+      const loaded = () => {
+        cleanup();
+        if (typeof liff === "undefined") reject(new Error("LINE SDK unavailable"));
+        else resolve();
+      };
+      const failed = () => { cleanup(); reject(new Error("LINE SDK download failed")); };
+      const timer = setTimeout(() => { cleanup(); reject(new Error("LINE SDK download timeout")); }, 15000);
+      script.addEventListener("load", loaded, { once: true });
+      script.addEventListener("error", failed, { once: true });
+    });
   }
 
   async function initLiffAndWait() {
     const statusElem = document.getElementById("status");
     try {
-      if (typeof liff === "undefined") throw new Error("SDK Not Loaded");
-
       const slowTimer = setTimeout(() => {
-        if (statusElem && statusElem.style.display !== "none")
-          statusElem.innerHTML = 'การเชื่อมต่อช้า ... <a href="' + location.origin + location.pathname + '?openExternalBrowser=1" style="color:#d9534f;font-weight:bold;">แตะที่นี่เพื่อเปิดใน Chrome/Safari</a>';
+        if (statusElem && statusElem.style.display !== "none") {
+          statusElem.innerText = "การเชื่อมต่อ LINE ช้า คุณยังดูแผงสลากได้ หากล็อกอินไม่ได้ให้เปิดร้านในเบราว์เซอร์ที่คุณใช้งาน";
+          showLineFallbackNotice();
+        }
       }, 6000);
       try {
+        await waitForLineSdk();
         await Promise.race([
           liff.init({ liffId: LIFF_ID }),
           new Promise((_, rej) => setTimeout(() => rej(new Error("LIFF init timeout")), 15000))
         ]);
       } finally { clearTimeout(slowTimer); }
+      lineSessionReady = true;
 
       const lineOaBtn = document.getElementById("lineOaBtn");
       if (lineOaBtn) lineOaBtn.href = LINE_OA_CHAT_URL;
@@ -593,6 +658,11 @@
   }
 
   function liffLogin() {
+    if (!lineSessionReady) {
+      alert("LINE ยังเชื่อมต่อไม่สำเร็จ กรุณารอสักครู่ หรือลองเปิดร้านในเบราว์เซอร์ที่คุณใช้งาน");
+      showLineFallbackNotice();
+      return;
+    }
     const p = new URLSearchParams(window.location.search);
     if (typeof liff === "undefined" || ((p.has("code") || p.has("state")) && !liff.isLoggedIn())) {
       // โค้ดล็อกอินเก่าใช้ซ้ำไม่ได้ ให้ล้างพารามิเตอร์แล้วเริ่มใหม่
@@ -609,6 +679,13 @@
   }
 
   async function loadUserDashboard() {
+    if (dashboardRequest) return dashboardRequest;
+    dashboardRequest = refreshUserDashboard();
+    try { return await dashboardRequest; }
+    finally { dashboardRequest = null; }
+  }
+
+  async function refreshUserDashboard() {
     try {
       const result = await apiPost("getDashboard");
 
@@ -654,7 +731,6 @@
         } else {
           document.getElementById("referralLinkSection").style.display = "none";
         }
-        document.getElementById("walletSummaryCard").style.display = "none";
         document.getElementById("searchAreaTop").style.display = "block";
 
       } else {
@@ -711,37 +787,48 @@
   function openWalletSection() {
     if (!checkAuthStatus()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนดูยอดเงินครับ");
-      liff.login();
+      liffLogin();
       return;
     }
     hideAllSections();
     document.getElementById("walletSummaryCard").style.display = "block";
     document.getElementById("myDropdown").style.display = "none";
-    walletActivityData = null;
-    void loadWalletActivity();
+    void loadUserDashboard();
+    walletHistoryLoaded = false;
+    void loadWalletActivity(document.getElementById("walletHistoryPanel").style.display !== "none");
   }
 
-  async function loadWalletActivity() {
+  async function loadWalletActivity(includeTransactions = true, append = false) {
     if (walletActivityRequest) return walletActivityRequest;
+    if (!append && includeTransactions) walletHistoryOffset = 0;
     const statusElement = document.getElementById("withdrawalStatusText");
     walletActivityRequest = (async () => {
       try {
-        const result = await apiPost("getWalletActivity");
+        const result = await apiPost("getWalletActivity", {
+          includeTransactions, offset: append ? walletHistoryOffset : 0, limit: 20
+        });
         if (result.status !== "success") throw new Error(result.message || "โหลดประวัติกระเป๋าเงินไม่สำเร็จ");
-        walletActivityData = result;
+        if (includeTransactions) {
+          walletHistoryOffset = result.offset + result.pageSize;
+          walletHistoryHasMore = Boolean(result.hasMore);
+          walletHistoryLoaded = true;
+        }
         const latest = result.latestWithdrawal;
         statusElement.innerText = latest
           ? `${latest.status} · ${Number(latest.amount).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท · ${latest.date}`
           : "ยังไม่มีรายการถอนเงิน";
-        if (document.getElementById("walletHistoryPanel").style.display !== "none")
-          renderWalletHistory(result.transactions || []);
+        if (includeTransactions) renderWalletHistory(result.transactions || [], append);
       } catch (error) {
+        console.error("Wallet activity load failed:", error);
         statusElement.innerText = "โหลดสถานะการถอนเงินไม่สำเร็จ กรุณาลองใหม่";
-        if (document.getElementById("walletHistoryPanel").style.display !== "none")
+        if (append) alert(error.message || "โหลดประวัติเพิ่มเติมไม่สำเร็จ กรุณาลองใหม่");
+        else if (document.getElementById("walletHistoryPanel").style.display !== "none")
           document.getElementById("walletHistoryList").innerHTML =
             `<div style="padding:10px 0; color:#ffd2d2;">${escapeHtml(error.message || "โหลดประวัติไม่สำเร็จ")}</div>`;
       } finally {
         walletActivityRequest = null;
+        if (!includeTransactions && document.getElementById("walletHistoryPanel").style.display !== "none")
+          void loadWalletActivity();
       }
     })();
     return walletActivityRequest;
@@ -755,21 +842,21 @@
     toggle.setAttribute("aria-expanded", String(isOpening));
     toggle.innerText = isOpening ? "📜 ซ่อนประวัติเดินบัญชี" : "📜 แสดงประวัติเดินบัญชี";
     if (!isOpening) return;
-    if (walletActivityData) renderWalletHistory(walletActivityData.transactions || []);
-    else {
-      document.getElementById("walletHistoryList").innerHTML =
-        "<div style='padding:10px 0; color:#eee;'>กำลังโหลดประวัติ...</div>";
-      void loadWalletActivity();
-    }
+    if (walletHistoryLoaded) return;
+    document.getElementById("walletHistoryList").innerHTML =
+      "<div style='padding:10px 0; color:#eee;'>กำลังโหลดประวัติ...</div>";
+    void loadWalletActivity();
   }
 
-  function renderWalletHistory(transactions) {
+  function renderWalletHistory(transactions, append = false) {
     const list = document.getElementById("walletHistoryList");
-    if (!transactions.length) {
+    if (!transactions.length && !append) {
       list.innerHTML = "<div style='padding:10px 0; color:#ccc;'>ยังไม่มีประวัติฝากเงิน ถอนเงิน หรือขึ้นเงินรางวัล</div>";
       return;
     }
-    list.innerHTML = transactions.map(transaction => {
+    const more = document.getElementById("walletHistoryMore");
+    if (more) more.remove();
+    const html = transactions.map(transaction => {
       const amount = Number(transaction.amount) || 0;
       const isCredit = transaction.type === "ฝากเงิน" ||
         transaction.type === "ขึ้นเงินรางวัล" || /^ค่าคอมมิชชั่นผู้แนะนำ/.test(transaction.type);
@@ -779,6 +866,10 @@
         <div class="wallet-activity-amount" style="color:${isCredit ? "#9be7a5" : "#ffd2d2"};">${amountText}</div>
       </div>`;
     }).join("");
+    if (append) list.insertAdjacentHTML("beforeend", html);
+    else list.innerHTML = html;
+    if (walletHistoryHasMore)
+      list.insertAdjacentHTML("beforeend", '<button type="button" id="walletHistoryMore" onclick="loadWalletActivity(true, true)">ดูประวัติเพิ่มเติม</button>');
   }
 
   function closeWalletSection() {
@@ -802,21 +893,26 @@
   async function openMyTicketsSection() {
     if (!checkAuthStatus()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนดูสลากของคุณครับ");
-      liff.login();
+      liffLogin();
       return;
     }
     hideAllSections();
     document.getElementById("myTicketsSection").style.display = "block";
     document.getElementById("myDropdown").style.display = "none";
+    if (myTicketsRequest) return myTicketsRequest;
     document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; padding: 20px;'>⏳ กำลังโหลดสลากของคุณ...</p>";
-    
-    try {
-      const result = await apiPost("getMyTickets");
-      renderMyTickets(result.tickets || [], result.history || []);
-    } catch (e) { 
-      document.getElementById("myTicketsList").innerHTML = "<p style='text-align:center; color:red;'>❌ โหลดข้อมูลสลากไม่สำเร็จ</p>"; 
-      document.getElementById("myTicketHistory").innerHTML = "";
-    }
+    myTicketsRequest = (async () => {
+      try {
+        const result = await apiPost("getMyTickets", { includeHistory: false });
+        if (result.status !== "success") throw new Error(result.message || "โหลดสลากไม่สำเร็จ");
+        renderMyTickets(result.tickets || []);
+      } catch (error) {
+        console.error("My tickets load failed:", error);
+        document.getElementById("myTicketsList").innerHTML =
+          `<p style="text-align:center;color:red;">${escapeHtml(error.message || "โหลดข้อมูลสลากไม่สำเร็จ")}</p>`;
+      } finally { myTicketsRequest = null; }
+    })();
+    return myTicketsRequest;
   }
   function closeMyTicketsSection() { 
     hideAllSections(); 
@@ -825,7 +921,7 @@
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function submitDepositTx() {
-    if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการนำฝากครับ"); liff.login(); return; }
+    if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการนำฝากครับ"); liffLogin(); return; }
     const amount = document.getElementById("depositInputAmount").value;
     if (!amount || amount < 20) { alert("กรุณาระบุยอดเติมเงินขั้นต่ำ 20 บาทครับ"); return; }
     
@@ -847,7 +943,7 @@
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS
   async function submitWithdrawTx() {
-    if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการแจ้งถอนครับ"); liff.login(); return; }
+    if (!checkAuthStatus()) { alert("🔒 กรุณาลงชื่อเข้าใช้งานระบบก่อนทำรายการแจ้งถอนครับ"); liffLogin(); return; }
     const amount = document.getElementById("withdrawInputAmount").value;
     if (!amount || amount < 50) { alert("กรุณาระบุยอดแจ้งถอนขั้นต่ำ 50 บาทครับ"); return; }
 
@@ -899,8 +995,8 @@
         hideAllSections();
         document.getElementById("walletSummaryCard").style.display = "block";
         document.getElementById("myDropdown").style.display = "none";
-        walletActivityData = null;
-        void loadWalletActivity();
+        walletHistoryLoaded = false;
+        void loadWalletActivity(document.getElementById("walletHistoryPanel").style.display !== "none");
       }
       alert(result.message || "ระบบไม่ได้ยืนยันผลคำขอถอน กรุณาส่งยอดเดิมอีกครั้ง");
     } catch(e) {
@@ -911,7 +1007,18 @@
     }
   }
 
-  async function doSearch(reset = true) {
+  function showStorefrontPreview() {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("publicStorefront:" + BACKEND_URL) || "null");
+      if (!saved || Date.now() - saved.savedAt > 300000 || !Array.isArray(saved.data.tickets)) return;
+      renderStoreTickets(saved.data, true, true);
+      document.getElementById("totalTicketsCount").innerText = "กำลังอัปเดต";
+    } catch (error) {
+      console.warn("Storefront preview unavailable:", error);
+    }
+  }
+
+  async function doSearch(reset = true, publicOnly = false) {
     const requestedQuery = document.getElementById("searchQ").value.trim().replace(/\D/g, "").slice(0, 6);
     if (_isSearching) {
       if (reset) _pendingSearch = true;
@@ -927,7 +1034,8 @@
       _searchOffset = 0;
       _searchHasMore = false;
       rawTicketsData = [];
-      ticketsArea.innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
+      if (!storefrontPreview)
+        ticketsArea.innerHTML = "<p style='grid-column: span 2; text-align:center;'>⏳ กำลังโหลดแผงหวย...</p>";
       loadMoreButton.style.display = "none";
       document.getElementById("ticketListHeading").innerText = requestedQuery
         ? "🔎 ผลการค้นหาเลขท้าย " + requestedQuery
@@ -936,7 +1044,7 @@
     loadMoreButton.disabled = true;
     try {
       let responseData;
-      if (checkAuthStatus()) {
+      if (!publicOnly && checkAuthStatus()) {
         responseData = await apiPost("search", {
           q: _searchQuery,
           offset: _searchOffset,
@@ -944,7 +1052,15 @@
         });
       } else {
         const res = await fetch(`${BACKEND_URL}?action=search&q=${encodeURIComponent(_searchQuery)}&offset=${_searchOffset}&limit=6`);
+        if (!res.ok) throw new Error("โหลดแผงไม่สำเร็จ (HTTP " + res.status + ")");
         responseData = await res.json();
+        if (reset && !_searchQuery && responseData.status !== "error") {
+          try {
+            sessionStorage.setItem("publicStorefront:" + BACKEND_URL, JSON.stringify({
+              savedAt: Date.now(), data: responseData
+            }));
+          } catch (error) { console.warn("Storefront preview storage unavailable:", error); }
+        }
       }
       if (responseData.status === "error") throw new Error(responseData.message || "ค้นหาสลากไม่สำเร็จ");
 
@@ -955,15 +1071,40 @@
       rawTicketsData = reset ? pageTickets : rawTicketsData.concat(pageTickets);
       _searchHasMore = Boolean(responseData.hasMore);
       _searchOffset = Number(responseData.offset || 0) + Number(responseData.pageSize || 6);
+      renderStoreTickets(responseData, reset);
+    } catch (e) {
+      if (reset) {
+        ticketsArea.innerHTML = `<p style='grid-column: span 2; text-align:center; color:red;'>❌ ${escapeHtml(e.message || "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่")}</p>`;
+        storefrontPreview = false;
+        storefrontReady = false;
+      } else alert(e.message || "โหลดสลากชุดถัดไปไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      _isSearching = false;
+      loadMoreButton.disabled = false;
+      if (_pendingSearch) {
+        _pendingSearch = false;
+        doSearch(true);
+      }
+    }
+  }
+
+  function renderStoreTickets(responseData, reset, preview = false) {
+      const ticketsArea = document.getElementById("ticketsArea");
+      const loadMoreButton = document.getElementById("loadMoreTicketsBtn");
+      const pageTickets = responseData.tickets || [];
+      storefrontPreview = preview;
+      storefrontReady = !preview;
 
       if (pageTickets.length === 0 && reset) {
-        ticketsArea.innerHTML = requestedQuery
+        ticketsArea.innerHTML = _searchQuery
           ? "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ไม่มีเลขนี้ในแผงครับ</p>"
           : "<p style='grid-column: span 2; text-align:center; color:#999;'>❌ ยังไม่มีสลากในแผงครับ</p>";
         return;
       }
 
       let fallbackHtml = "";
+      if (preview)
+        fallbackHtml = "<p role='status' style='grid-column:span 2;text-align:center;'>กำลังอัปเดตแผงสลาก… ข้อมูลนี้เป็นภาพล่าสุดที่บันทึกไว้ ยังเลือกซื้อไม่ได้</p>";
       if (responseData.fallbackMessage) {
         fallbackHtml = `<div style="grid-column: span 2; background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; border: 1px solid #ffeeba; text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"><i class="fa-solid fa-lightbulb" style="color: #ffc107; font-size: 16px;"></i> ${escapeHtml(responseData.fallbackMessage)}</div>`;
       }
@@ -976,18 +1117,22 @@
         if (item.imageUrl) groupedTickets[key].imageUrls.push(item.imageUrl);
       });
 
+      const config = responseData.config;
       const shippingType = document.getElementById("shippingType");
-      document.getElementById("lblDeposit").innerText = `📦 ฝากตรวจ (ใบละ ${storeConfig.ticketPrice} + ค่าเช่าพื้นที่จัดเก็บ ${storeConfig.feeDeposit} = ${storeConfig.ticketPrice + storeConfig.feeDeposit} บ.)`;
-      const allowReal = !!(storeConfig && storeConfig.allowShipping);
+      if (!config) throw new Error("ไม่พบข้อมูลตั้งร้าน");
+      document.getElementById("lblDeposit").innerText = `📦 ฝากตรวจ (ใบละ ${config.ticketPrice} + ค่าเช่าพื้นที่จัดเก็บ ${config.feeDeposit} = ${config.ticketPrice + config.feeDeposit} บ.)`;
+      const allowReal = !!config.allowShipping;
       document.getElementById("rowReal").style.display = allowReal ? "block" : "none";
-      document.getElementById("lblReal").innerText = `🚚 รับใบจริง (ใบละ ${storeConfig.ticketPrice} + ค่าบริการบรรจุ+ซอง ${storeConfig.feeDeposit} + ค่าจัดส่งเหมา ${storeConfig.feeShipping} บ.)`;
-      if (!allowReal) pickShipping("ฝากตรวจ"); else pickShipping(shippingType.value);
+      document.getElementById("lblReal").innerText = `🚚 รับใบจริง (ใบละ ${config.ticketPrice} + ค่าบริการบรรจุ+ซอง ${config.feeDeposit} + ค่าจัดส่งเหมา ${config.feeShipping} บ.)`;
+      if (!preview) {
+        if (!allowReal) pickShipping("ฝากตรวจ"); else pickShipping(shippingType.value);
+      }
 
-      let html = Object.values(groupedTickets).map(group => {
+      let html = Object.values(groupedTickets).map((group, index) => {
         let selectedInCartCount = cart.filter(c => c.ticketId === group.ticketId && c.drawDate === group.drawDate).length;
         let availableCount = group.allSets.length - selectedInCartCount;
-        let isButtonDisabled = availableCount <= 0 ? "disabled" : "";
-        let buttonText = availableCount <= 0 ? "อยู่ในตะกร้า" : "หยิบใส่ตะกร้า";
+        let isButtonDisabled = preview || availableCount <= 0 ? "disabled" : "";
+        let buttonText = preview ? "กำลังอัปเดต" : availableCount <= 0 ? "อยู่ในตะกร้า" : "หยิบใส่ตะกร้า";
         let qty = group.allSets.length;
         let millions = qty * 6;
         let coverImg = group.imageUrls[0] || 'https://via.placeholder.com/150?text=No+Image';
@@ -995,11 +1140,11 @@
         return `
           <div class="ticket-card">
             <div class="ticket-img-container">
-              <img src="${escapeHtml(coverImg)}" loading="lazy" decoding="async" fetchpriority="low" alt="สลากหมายเลข ${escapeHtml(group.ticketId)}">
+              <img src="${escapeHtml(coverImg)}" loading="${reset && index < 2 ? "eager" : "lazy"}" decoding="async" alt="สลากหมายเลข ${escapeHtml(group.ticketId)}">
               <div class="ticket-left-info">
                 ${qty > 1 ? 'เลขชุด<br>' : ''}<span>${qty}</span> ใบ<br><span>${millions}</span> ล้าน
               </div>
-              <button class="btn-buy" id="${escapeHtml(ticketGroupButtonId(group.ticketId, group.drawDate))}" data-ticket-id="${escapeHtml(group.ticketId)}" data-draw-date="${escapeHtml(group.drawDate)}" ${isButtonDisabled}>
+              <button class="btn-buy" id="${escapeHtml(ticketGroupButtonId(group.ticketId, group.drawDate))}" data-preview="${preview}" data-ticket-id="${escapeHtml(group.ticketId)}" data-draw-date="${escapeHtml(group.drawDate)}" ${isButtonDisabled}>
                 <i class="fa-solid fa-basket-shopping"></i> ${buttonText}
               </button>
             </div>
@@ -1008,18 +1153,7 @@
 
       if (reset) ticketsArea.innerHTML = fallbackHtml + html;
       else ticketsArea.insertAdjacentHTML("beforeend", html);
-      loadMoreButton.style.display = _searchHasMore ? "block" : "none";
-    } catch (e) {
-      if (reset) ticketsArea.innerHTML = `<p style='grid-column: span 2; text-align:center; color:red;'>❌ ${escapeHtml(e.message || "โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่")}</p>`;
-      else alert(e.message || "โหลดสลากชุดถัดไปไม่สำเร็จ กรุณาลองใหม่");
-    } finally {
-      _isSearching = false;
-      loadMoreButton.disabled = false;
-      if (_pendingSearch) {
-        _pendingSearch = false;
-        doSearch(true);
-      }
-    }
+      loadMoreButton.style.display = !preview && _searchHasMore ? "block" : "none";
   }
 
   function startCartTimer() {
@@ -1073,6 +1207,7 @@
     document.getElementById("cartTimerDisplay").innerText = "";
     if (cart.length) startCartTimer();
     document.querySelectorAll(".btn-buy").forEach(button => {
+      if (button.dataset.preview === "true") return;
       const inCart = cart.some(item =>
         item.ticketId === button.dataset.ticketId && item.drawDate === button.dataset.drawDate);
       button.disabled = inCart;
@@ -1119,9 +1254,16 @@
 
   // ✅ แก้ไข: เอา headers ออก ป้องกันติด CORS และแก้ปัญหา "Failed to fetch"
   async function clickSelectTicket(ticketId, drawDate) {
+    if (!storefrontReady || storefrontPreview) {
+      alert("กรุณารอแผงสลากอัปเดต หรือค้นหาใหม่ก่อนเลือกซื้อ");
+      return;
+    }
     if (!checkAuthStatus()) {
       alert("🔒 กรุณาลงชื่อเข้าใช้งานแผงหวยก่อนเลือกสลากลงตะกร้าครับ");
-      try { liffLogin(); } catch (e) { location.replace(location.origin + location.pathname + "?openExternalBrowser=1"); }
+      try { liffLogin(); } catch (error) {
+        console.error("LINE login failed:", error);
+        showLineFallbackNotice();
+      }
       return;
     }
     if (cartBusy || !await restoreReservedCart() || cartBusy) return;
@@ -1206,13 +1348,28 @@
 
     if (cart.length === 0) { 
       summaryArea.style.display = "none"; 
+      container.replaceChildren();
       return; 
     }
 
     summaryArea.style.display = "block";
-    container.innerHTML = cart.map(item =>
-      `<span class="cart-tag">${escapeHtml(item.ticketId)} (งวด ${escapeHtml(item.drawDate)}, ชุด ${escapeHtml(item.setNo)}) <i class="fa-solid fa-circle-xmark" onclick="removeFromCart('${escapeHtml(item.uniqueKey)}')"></i></span>`
-    ).join('');
+    const keys = new Set(cart.map(item => item.uniqueKey));
+    Array.from(container.children).forEach(node => {
+      if (!keys.has(node.dataset.key)) node.remove();
+    });
+    const existing = new Map(Array.from(container.children).map(node => [node.dataset.key, node]));
+    cart.forEach(item => {
+      if (existing.has(item.uniqueKey)) return;
+      const tag = document.createElement("span");
+      tag.className = "cart-tag";
+      tag.dataset.key = item.uniqueKey;
+      tag.appendChild(document.createTextNode(`${item.ticketId} (งวด ${item.drawDate}, ชุด ${item.setNo}) `));
+      const remove = document.createElement("i");
+      remove.className = "fa-solid fa-circle-xmark";
+      remove.onclick = () => removeFromCart(item.uniqueKey);
+      tag.appendChild(remove);
+      container.appendChild(tag);
+    });
     reCalculatePrice();
   }
 
@@ -1289,7 +1446,7 @@
   async function submitOrderCore(confirmed) {
     if (!checkAuthStatus()) { 
       alert("🔒 กรุณาลงชื่อเข้าใช้งานก่อนสั่งซื้อครับ"); 
-      liff.login(); 
+      liffLogin(); 
       return; 
     }
     if (cart.length === 0) return;
@@ -1457,6 +1614,10 @@
     const stackedPhotos = container.querySelector('.stacked-photos');
     
     if (stackedPhotos.style.display === 'none') {
+      stackedPhotos.querySelectorAll("img[data-src]").forEach(image => {
+        image.src = image.dataset.src;
+        image.removeAttribute("data-src");
+      });
       stackedPhotos.style.display = 'flex';
       singleCover.style.display = 'none';
       btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> ซ่อนภาพชุดสลาก';
@@ -1473,15 +1634,10 @@
     tickets = Array.isArray(tickets) ? tickets : [];
     history = Array.isArray(history) ? history : [];
     const countBadge = document.getElementById("myTicketCountBadge");
-    const allTicketKeys = new Set(tickets.map(ticket => ticket.ticketKey));
-    history.forEach(draw => (Array.isArray(draw.tickets) ? draw.tickets : []).forEach(ticket =>
-      allTicketKeys.add(`${ticket.ticketId}_${draw.drawDate}_${ticket.setNo}`)
-    ));
-    if (countBadge) countBadge.innerText = allTicketKeys.size + " ใบ";
+    if (countBadge) countBadge.innerText = tickets.filter(ticket => ticket.isCurrentDraw !== false).length + " ใบในงวดปัจจุบัน";
 
     if (tickets.length === 0 && history.length === 0) {
-      document.getElementById("myTicketsList").innerHTML = "<div style='text-align:center; padding: 30px; color:#999;'><i class='fa-solid fa-ticket-simple' style='font-size: 40px; margin-bottom: 10px;'></i><br>คุณยังไม่มีประวัติซื้อสลากครับ</div>";
-      document.getElementById("myTicketHistory").innerHTML = "";
+      document.getElementById("myTicketsList").innerHTML = "<div style='text-align:center; padding: 30px; color:#999;'>ไม่มีสลากในงวดปัจจุบัน ดูงวดเก่าได้ที่ปุ่มประวัติด้านล่างครับ</div>";
       return;
     }
 
@@ -1490,7 +1646,8 @@
         `${ticket.ticketId}_${draw.drawDate}_${ticket.setNo}`
       )
     ));
-    const currentTickets = tickets.filter(ticket => !archivedTicketKeys.has(ticket.ticketKey));
+    const currentTickets = tickets.filter(ticket =>
+      ticket.isCurrentDraw !== false && !archivedTicketKeys.has(ticket.ticketKey));
     let html = "";
     let groupedMyTickets = {};
     currentTickets.forEach(t => {
@@ -1539,6 +1696,7 @@
       let badgeIcon    = group.shippingType === "รับใบจริง" ? "fa-truck" : "fa-box-archive";
       let colorStyle   = group.result.includes('ถูก') ? '#28a745' : (group.result.includes('เสียใจ') ? '#d9534f' : '#f0ad4e');
       let qty          = group.sets.length;
+      const stackId = encodeURIComponent(group.ticketId + "_" + group.drawDate).replace(/'/g, "%27");
       let imageAreaHtml = "";
       const pendingClaims = group.ticketRows.filter(ticket => ticket.prizeClaimStatus);
       const ticketReturnStatuses = [...new Set(group.ticketRows
@@ -1577,9 +1735,9 @@
       
       if (qty >= 2) {
         imageAreaHtml = `
-          <div class="ticket-stack-container" id="stack-${escapeHtml(group.ticketId)}">
+          <div class="ticket-stack-container" id="stack-${stackId}">
             <div class="single-cover watermark-wrapper">
-              <img src="${escapeHtml(group.imageUrls[0])}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+              <img src="${escapeHtml(group.imageUrls[0])}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'">
               <div class="watermark-half">
                 <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
                   โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
@@ -1589,20 +1747,20 @@
             <div class="stacked-photos" style="display: none;">
               ${group.imageUrls.map((url, index) => {
                 if (index === group.imageUrls.length - 1) {
-                  return `<div class="front-stacked-sheet watermark-wrapper"><img src="${escapeHtml(url)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'"><div class="watermark-half"><div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span></div></div></div>`;
+                  return `<div class="front-stacked-sheet watermark-wrapper"><img data-src="${escapeHtml(url)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'"><div class="watermark-half"><div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span></div></div></div>`;
                 } else {
-                  return `<div class="back-stacked-sheet"><img src="${escapeHtml(url)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'"></div>`;
+                  return `<div class="back-stacked-sheet"><img data-src="${escapeHtml(url)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'"></div>`;
                 }
               }).join('')}
             </div>
-            <button type="button" class="btn-toggle-stack" onclick="toggleTicketStack('${escapeHtml(group.ticketId)}', this, ${qty})">
+            <button type="button" class="btn-toggle-stack" onclick="toggleTicketStack('${stackId}', this, ${qty})">
               <i class="fa-solid fa-images"></i> แสดงภาพชุดเพิ่มเติม (${qty} ใบ)
             </button>
           </div>`;
       } else {
         imageAreaHtml = `
           <div class="watermark-wrapper">
-            <img src="${escapeHtml(group.imageUrls[0])}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+            <img src="${escapeHtml(group.imageUrls[0])}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'">
             <div class="watermark-half">
               <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
                 โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
@@ -1627,7 +1785,48 @@
           </div>`).join("")}
         </details>`
       : "";
-    document.getElementById("myTicketHistory").innerHTML = historyHtml;
+    if (history.length) document.getElementById("myTicketHistory").innerHTML = historyHtml;
+  }
+
+  function toggleTicketHistory() {
+    const panel = document.getElementById("myTicketHistory");
+    panel.hidden = !panel.hidden;
+    document.getElementById("ticketHistoryToggle").setAttribute("aria-expanded", String(!panel.hidden));
+    document.getElementById("ticketHistoryMore").hidden = panel.hidden || !ticketHistoryHasMore;
+    if (!panel.hidden && !ticketHistoryLoaded) void loadTicketHistory();
+  }
+
+  async function loadTicketHistory() {
+    if (ticketHistoryRequest) return ticketHistoryRequest;
+    const panel = document.getElementById("myTicketHistory");
+    const more = document.getElementById("ticketHistoryMore");
+    more.disabled = true;
+    ticketHistoryRequest = (async () => {
+      try {
+        if (!ticketHistoryLoaded) panel.innerHTML = "<p role='status'>กำลังโหลดประวัติงวดก่อน…</p>";
+        const result = await apiPost("getMyTicketHistory", { offset: ticketHistoryOffset, limit: 5 });
+        if (result.status !== "success") throw new Error(result.message || "โหลดประวัติไม่สำเร็จ");
+        if (!ticketHistoryLoaded) panel.innerHTML = "";
+        const html = (result.history || []).map(draw => `<div class="ticket-history-draw">
+          <div style="font-weight:bold;">งวด ${escapeHtml(draw.drawDate)} · ${draw.tickets.length} ใบ</div>
+          <div class="ticket-number-list">${draw.tickets.map(ticket =>
+            `<span class="ticket-number-pill">${escapeHtml(ticket.ticketId)}${ticket.setNo ? ` ชุด ${escapeHtml(ticket.setNo)}` : ""}</span>`
+          ).join("")}</div></div>`).join("");
+        panel.insertAdjacentHTML("beforeend", html || (!ticketHistoryLoaded ? "<p>ยังไม่มีประวัติการซื้อสลากงวดก่อน</p>" : ""));
+        ticketHistoryLoaded = true;
+        ticketHistoryOffset = result.offset + result.pageSize;
+        ticketHistoryHasMore = Boolean(result.hasMore);
+        more.hidden = panel.hidden || !ticketHistoryHasMore;
+      } catch (error) {
+        console.error("Ticket history load failed:", error);
+        alert(error.message || "โหลดประวัติไม่สำเร็จ กรุณาลองใหม่");
+        more.hidden = panel.hidden;
+      } finally {
+        more.disabled = false;
+        ticketHistoryRequest = null;
+      }
+    })();
+    return ticketHistoryRequest;
   }
 
   function openPrizeClaimModal(ticketKeys, grossAmount, taxAmount, netAmount, taxRate) {
@@ -1665,7 +1864,7 @@
   async function submitPrizeTicketReturn(deliveryMethod) {
     if (!checkAuthStatus()) {
       alert("กรุณาเข้าสู่ระบบ LINE ใหม่ก่อนทำรายการ");
-      liff.login();
+      liffLogin();
       return;
     }
     if (pendingPrizeTicketReturnKeys.length === 0) return;
@@ -1711,7 +1910,7 @@
   async function submitPrizeClaim(method) {
     if (!checkAuthStatus()) {
       alert("กรุณาเข้าสู่ระบบ LINE ใหม่ก่อนขึ้นเงินรางวัล");
-      liff.login();
+      liffLogin();
       return;
     }
     if (pendingPrizeClaimKeys.length === 0) return;
@@ -1759,7 +1958,7 @@
     }
   });
 
-  window.onload = startApp;
+  document.addEventListener("DOMContentLoaded", startApp, { once: true });
 </script>
 </body>
 </html>
