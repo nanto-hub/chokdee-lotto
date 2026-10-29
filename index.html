@@ -25,6 +25,7 @@
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
     .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
+    #checkoutModal, #checkoutModal * { box-sizing: border-box; }
 
     .search-box { display: flex; justify-content: space-between; margin-bottom: 5px; }
     .search-input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
@@ -174,6 +175,7 @@
         <button class="btn-wallet btn-deposit"  onclick="openDepositView()"><i class="fa-solid fa-circle-plus"></i> เติมเงิน</button>
         <button class="btn-wallet btn-withdraw" onclick="openWithdrawView()"><i class="fa-solid fa-money-bill-transfer"></i> แจ้งถอน</button>
       </div>
+      <button type="button" class="btn-back" onclick="openLatestCheckout()">ดูรายการชำระ QR ล่าสุด</button>
       <div class="wallet-activity">
         <div style="font-weight:bold; margin-bottom:6px;">รายการเดินบัญชีล่าสุด</div>
         <div id="withdrawalStatusText" aria-live="polite" style="color:#eee; font-size:13px;">กำลังโหลดสถานะ...</div>
@@ -216,7 +218,9 @@
         <div style="background:#fff;border-radius:12px;padding:18px;max-width:420px;width:100%;max-height:85vh;overflow:auto;">
           <h3 style="margin-top:0;">🧾 สรุปรายการสั่งซื้อ</h3>
           <div id="orderConfirmBody"></div>
-          <button class="btn-order" onclick="finalConfirmOrder()">✅ ยืนยันการสั่งซื้อ</button>
+          <button class="btn-order" onclick="finalConfirmOrder()">✅ ชำระด้วยวอลเล็ต</button>
+          <button type="button" id="btnCheckoutQr" class="btn-order" style="background:#0275d8;margin-top:8px;" onclick="startCheckoutPayment()">ชำระส่วนที่ขาดด้วย QR</button>
+          <p style="font-size:13px;color:#666;">ใช้ยอดวอลเล็ตก่อน แล้วโอนเฉพาะส่วนที่ขาด ระบบจะซื้อให้อัตโนมัติเมื่อตรวจสลิปผ่านภายในเวลาจอง 5 นาที</p>
           <button type="button" class="btn-back" style="margin-top:8px;" onclick="closeOrderConfirm()">⬅️ กลับไปหน้าแผงหวยเพื่อซื้อเพิ่ม</button>
         </div>
       </div>
@@ -327,6 +331,21 @@
     </div>
   </div>
 
+  <div id="checkoutModal" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;align-items:center;justify-content:center;padding:15px;">
+    <div style="background:#fff;border-radius:12px;padding:18px;max-width:420px;width:100%;max-height:85vh;overflow:auto;">
+      <h3 id="checkoutTitle">ชำระคำสั่งซื้อด้วย QR</h3>
+      <div id="checkoutDetails"></div>
+      <p id="checkoutStatus" role="status" aria-live="polite"></p>
+      <img id="checkoutQr" alt="QR พร้อมเพย์สำหรับยอดที่ขาด" style="display:none;max-width:100%;width:260px;margin:auto;">
+      <p style="font-size:13px;">โปรดตรวจชื่อผู้รับในแอปธนาคารก่อนโอน ใช้บัญชีชื่อจริงตรงกับที่สมัคร ส่งสลิปใน LINE OA และส่งรหัส DEP ด้านบนหากระบบขอ การเปิด QR ยังไม่ใช่การชำระสำเร็จ</p>
+      <p style="font-size:13px;">หากตรวจสลิปไม่ผ่านหรือโควต้าหมด ต้องรอแอดมินตรวจเงินจริง หากหมดเวลาหรือซื้อไม่ได้ ยอดที่ตรวจผ่านจะเข้าวอลเล็ตให้เลือกซื้อใหม่ ยอดวอลเล็ตยังไม่ถูกหักระหว่างรอ กรุณาอย่าใช้ยอดนี้กับรายการอื่น</p>
+      <a class="btn-order" href="https://line.me/R/ti/p/@908iwiki" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;background:#06c755;text-decoration:none;">ส่งสลิปใน LINE OA</a>
+      <button type="button" id="btnRefreshCheckout" class="btn-back" onclick="refreshCheckoutPayment()">ตรวจสถานะการชำระ</button>
+      <button type="button" id="btnCancelCheckout" class="btn-back" onclick="cancelCheckoutPayment()">ยกเลิกการซื้ออัตโนมัติ</button>
+      <button type="button" class="btn-back" onclick="closeCheckoutPayment()">ปิดหน้าต่าง (ไม่ยกเลิกรายการ)</button>
+    </div>
+  </div>
+
 <script src="config.js?v=65"></script>
 <script>
   const LINE_OA_CHAT_URL = "https://line.me/R/ti/p/@908iwiki"; 
@@ -334,6 +353,11 @@
   let cart = [];
   let rawTicketsData = [];
   let storeConfig = null;
+  let checkoutPayment = null;
+  let checkoutPolling = null;
+  let checkoutRefreshing = false;
+  let checkoutCreating = false;
+  let checkoutViewVersion = 0;
   let lineSessionReady = false;
   let walletActivityRequest = null;
   const pendingReads = new Map();
@@ -1439,11 +1463,155 @@
     const total = rows.reduce((s, r) => s + r[1], 0);
     document.getElementById("orderConfirmBody").innerHTML =
       rows.map(r => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed #ddd;"><span>${escapeHtml(r[0])}</span><b>${r[1]} บาท</b></div>`).join("") +
-      `<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:17px;"><b>รวมที่หัก</b><b style="color:#28a745;">${total} บาท</b></div>`;
+      `<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:17px;"><b>ยอดรวม</b><b style="color:#28a745;">${total} บาท</b></div>`;
     document.getElementById("orderConfirmModal").style.display = "flex";
   }
   function closeOrderConfirm() { document.getElementById("orderConfirmModal").style.display = "none"; }
   function finalConfirmOrder() { closeOrderConfirm(); submitOrder(true); }
+
+  function renderCheckoutPayment(result) {
+    if (result.status !== "success" || !Array.isArray(result.tickets) ||
+        !Number.isFinite(result.expiresAt) || !Number.isFinite(result.serverNow) ||
+        !["PENDING", "PROCESSING", "PAID", "WALLET_ONLY", "MANUAL"].includes(result.paymentStatus))
+      throw new Error(result.message || "ข้อมูลรายการชำระไม่ถูกต้อง");
+    checkoutPayment = result;
+    const remaining = Math.max(0, Math.ceil((result.expiresAt - result.serverNow) / 1000));
+    const awaiting = result.paymentStatus === "PENDING" && remaining > 0;
+    document.getElementById("checkoutDetails").innerHTML =
+      `<p>รหัสชำระ: <b>${escapeHtml(result.txId)}</b></p>` +
+      `<p>สลาก ${result.tickets.length} ใบ · ${escapeHtml(result.shippingType)}</p>` +
+      `<p style="font-size:12px;overflow-wrap:anywhere;">${result.tickets.map(escapeHtml).join(", ")}</p>` +
+      `<p>ยอดรวม: <b>${escapeHtml(result.totalAmount)} บาท</b><br>` +
+      `ใช้วอลเล็ต: ${escapeHtml(result.walletAmount)} บาท<br>` +
+      `โอนส่วนที่ขาด: <b>${escapeHtml(result.finalAmount)} บาท</b></p>` +
+      `<p>ชื่อบัญชีผู้รับที่แสดงในระบบ: ${escapeHtml(result.recipientName)}<br>` +
+      `ชื่อผู้โอนที่สมัคร: ${escapeHtml(result.senderName)}</p>`;
+    document.getElementById("checkoutStatus").innerText = result.paymentStatus === "PENDING"
+      ? (remaining > 0 ? `รอชำระและตรวจสลิป เหลือเวลาจอง ${Math.floor(remaining / 60)} นาที ${remaining % 60} วินาที`
+        : "หมดเวลาจองแล้ว กรุณาอย่าโอนเพิ่ม หากโอนแล้วให้ส่งสลิปเพื่อตรวจและเติมยอดเข้าวอลเล็ต")
+      : result.message || "กำลังดำเนินการ กรุณาตรวจสถานะอีกครั้ง";
+    const qr = document.getElementById("checkoutQr");
+    qr.style.display = awaiting ? "block" : "none";
+    qr.src = awaiting ? result.qrCodeImgUrl : "";
+    document.getElementById("btnCancelCheckout").style.display = result.paymentStatus === "PENDING" ? "block" : "none";
+    document.getElementById("checkoutModal").style.display = "flex";
+    clearInterval(checkoutPolling);
+    if (result.paymentStatus === "PENDING" && remaining > 0)
+      checkoutPolling = setInterval(() => refreshCheckoutPayment(), 15000);
+    if (["PAID", "WALLET_ONLY"].includes(result.paymentStatus) ||
+        (result.paymentStatus === "PENDING" && remaining === 0)) {
+      try { localStorage.removeItem(cartStorageKey() + ":checkout"); }
+      catch (error) { console.warn("Checkout reminder cleanup failed:", error); }
+    }
+    if (result.paymentStatus === "PAID") {
+      clearInterval(cartExpireTimerInterval);
+      cart = cart.filter(item => !result.tickets.includes(item.uniqueKey));
+      rememberCart();
+      updateCartUI();
+    }
+  }
+
+  async function startCheckoutPayment() {
+    if (checkoutCreating || cartBusy || !checkAuthStatus()) return;
+    checkoutCreating = true;
+    const button = document.getElementById("btnCheckoutQr");
+    button.disabled = true;
+    try {
+      if (!await restoreReservedCart() || !cart.length) return;
+      cartBusy = true;
+      const shippingType = document.getElementById("shippingType").value;
+      const tickets = cart.map(item => item.uniqueKey);
+      const storageKey = cartStorageKey() + ":checkout";
+      const signature = JSON.stringify([tickets.slice().sort(), shippingType]);
+      let saved;
+      try { saved = JSON.parse(localStorage.getItem(storageKey) || "null"); }
+      catch (error) { console.warn("Checkout reminder read failed:", error); }
+      if (!saved || saved.signature !== signature) {
+        if (!window.crypto || typeof window.crypto.randomUUID !== "function")
+          throw new Error("เบราว์เซอร์ไม่รองรับรหัสชำระ กรุณาอัปเดตหรือเปิดในเบราว์เซอร์อื่น");
+        saved = { signature, requestId: window.crypto.randomUUID() };
+        // Keep this ID across network retries; do not generate another payment after an uncertain response.
+        localStorage.setItem(storageKey, JSON.stringify(saved));
+      }
+      const result = await apiPost("requestCheckoutPayment", {
+        data: { tickets, shippingType, requestId: saved.requestId }
+      });
+      if (result.status !== "success") throw new Error(result.message || "สร้างรายการชำระไม่สำเร็จ");
+      closeOrderConfirm();
+      renderCheckoutPayment(result);
+      if (result.paymentStatus === "PENDING" && result.expiresAt > result.serverNow) {
+        const selected = new Set(result.tickets);
+        const expiresAt = result.expiresAt + Date.now() - result.serverNow;
+        cart.forEach(item => { if (selected.has(item.uniqueKey)) item.expiresAt = expiresAt; });
+        cartExpirationTime = Math.min(...cart.map(item => item.expiresAt));
+        rememberCart();
+        startCartTimer();
+      }
+    } catch (error) {
+      console.error("Checkout creation failed:", error);
+      alert((error.message || "สร้างรายการชำระไม่สำเร็จ") + "\nหากการเชื่อมต่อขัดข้อง ให้ตรวจรายการ QR ล่าสุดก่อนสร้างใหม่");
+    } finally {
+      checkoutCreating = false;
+      cartBusy = false;
+      button.disabled = false;
+    }
+  }
+
+  async function openLatestCheckout() {
+    checkoutViewVersion++;
+    checkoutPayment = null;
+    await refreshCheckoutPayment();
+  }
+
+  async function refreshCheckoutPayment() {
+    if (checkoutRefreshing) return;
+    checkoutRefreshing = true;
+    const version = checkoutViewVersion;
+    const button = document.getElementById("btnRefreshCheckout");
+    button.disabled = true;
+    try {
+      const result = await apiPost("getCheckoutPayment", { data: { txId: checkoutPayment ? checkoutPayment.txId : undefined } });
+      if (version !== checkoutViewVersion) return;
+      if (result.status === "clear") { alert("ยังไม่มีรายการชำระด้วย QR"); return; }
+      renderCheckoutPayment(result);
+    } catch (error) {
+      console.error("Checkout status failed:", error);
+      if (version !== checkoutViewVersion) return;
+      clearInterval(checkoutPolling);
+      document.getElementById("checkoutModal").style.display = "flex";
+      document.getElementById("checkoutQr").style.display = "none";
+      document.getElementById("checkoutStatus").innerText =
+        "ตรวจสถานะไม่สำเร็จ: " + error.message + " กรุณากดตรวจใหม่ อย่าโอนซ้ำหรือสร้างรายการใหม่";
+    } finally {
+      checkoutRefreshing = false;
+      button.disabled = false;
+    }
+  }
+
+  async function cancelCheckoutPayment() {
+    if (!checkoutPayment || checkoutRefreshing ||
+        !confirm("ยกเลิกการซื้ออัตโนมัติหรือไม่? หากโอนแล้ว ยอดที่ตรวจผ่านจะเข้าวอลเล็ต ไม่ซื้อให้เอง")) return;
+    checkoutRefreshing = true;
+    const button = document.getElementById("btnCancelCheckout");
+    button.disabled = true;
+    try {
+      const result = await apiPost("getCheckoutPayment", { data: { txId: checkoutPayment.txId, cancel: true } });
+      renderCheckoutPayment(result);
+    } catch (error) {
+      console.error("Checkout cancellation failed:", error);
+      alert("ยกเลิกไม่สำเร็จ: " + error.message + " กรุณาตรวจสถานะก่อนทำรายการใหม่");
+    } finally {
+      checkoutRefreshing = false;
+      button.disabled = false;
+    }
+  }
+
+  function closeCheckoutPayment() {
+    checkoutViewVersion++;
+    clearInterval(checkoutPolling);
+    document.getElementById("checkoutModal").style.display = "none";
+    refreshUserDashboard();
+  }
 
   function reCalculatePrice() {
     if (!storeConfig) return;
@@ -1760,14 +1928,14 @@
               <img src="${escapeHtml(group.imageUrls[0])}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'">
               <div class="watermark-half">
                 <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
-                  โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
+                  ดวงดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
                 </div>
               </div>
             </div>
             <div class="stacked-photos" style="display: none;">
               ${group.imageUrls.map((url, index) => {
                 if (index === group.imageUrls.length - 1) {
-                  return `<div class="front-stacked-sheet watermark-wrapper"><img data-src="${escapeHtml(url)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'"><div class="watermark-half"><div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span></div></div></div>`;
+                  return `<div class="front-stacked-sheet watermark-wrapper"><img data-src="${escapeHtml(url)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'"><div class="watermark-half"><div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">ดวงดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span></div></div></div>`;
                 } else {
                   return `<div class="back-stacked-sheet"><img data-src="${escapeHtml(url)}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'"></div>`;
                 }
@@ -1783,7 +1951,7 @@
             <img src="${escapeHtml(group.imageUrls[0])}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://via.placeholder.com/150?text=No+Image'">
             <div class="watermark-half">
               <div style="font-weight: 800; font-size: 14px; color: #d9534f; line-height: 1.2;">
-                โชคดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
+                ดวงดี<br>ล็อตเตอรี่<br><span style="font-size: 10px; color: #666;">(ขายแล้ว)</span>
               </div>
             </div>
           </div>`;
@@ -1973,6 +2141,10 @@
 
   document.addEventListener("visibilitychange", function() {
     if (document.visibilityState === "visible" && checkAuthStatus()) {
+      if (checkoutPayment && document.getElementById("checkoutModal").style.display === "flex") {
+        void refreshCheckoutPayment();
+        return;
+      }
       void restoreReservedCart();
       void loadUserDashboard();
     }
