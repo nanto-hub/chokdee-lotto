@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ดวงดีล็อตเตอรี่</title>
+  <meta name="theme-color" content="#d9534f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ดวงดีล็อตเตอรี่">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <script defer src="./pwa.js?v=1"></script>
   <script async id="lineSdk" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -25,6 +31,14 @@
     .dropdown-menu a { display: block; padding: 12px; color: #333; text-decoration: none; font-size: 15px; font-weight: normal; border-radius: 8px; text-align: left; }
     .dropdown-menu a:hover { background-color: #f8f9fa; color: #0056b3; }
     .main-container { max-width: 480px; margin: 0 auto; padding: 15px; }
+    .pwa-bar { margin-bottom: 12px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; }
+    .pwa-install-entry[hidden] { display: none !important; }
+    .pwa-button { padding: 9px 12px; background: #d9534f; color: #fff; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
+    #pwaDialog { box-sizing: border-box; width: min(440px, calc(100% - 32px)); max-height: 85vh; overflow-y: auto; border: 0; border-radius: 12px; padding: 20px; color: #333; }
+    #pwaDialog::backdrop { background: rgba(0,0,0,0.5); }
+    #pwaInstructions { line-height: 1.7; white-space: pre-line; }
+    #pwaStatus { line-height: 1.5; font-size: 13px; }
+    @media (display-mode: standalone) { .pwa-install-entry { display: none !important; } }
     #checkoutModal, #checkoutModal * { box-sizing: border-box; }
 
     .search-box { display: flex; justify-content: space-between; margin-bottom: 5px; }
@@ -138,12 +152,18 @@
       <a href="#" id="menuWallet" onclick="openWalletSection()" style="display:none;">💰 ยอดเงิน / กระเป๋าเงิน</a>
       <a href="#" id="menuProfile" onclick="openProfileSection()">👤 ข้อมูลส่วนตัว</a>
       <a href="#" id="menuTickets" onclick="openMyTicketsSection()">🎟️ สลากของคุณ</a>
+      <a href="#install" id="menuInstall" class="pwa-install-entry">ติดตั้งเว็บบนหน้าจอมือถือ</a>
       <a href="#" id="menuLogin" onclick="liffLogin()" style="display:none; color: #28a745; font-weight: bold;"><i class="fa-solid fa-right-to-bracket"></i> ลงชื่อเข้าใช้งาน</a>
       <a href="#" id="menuLogout" onclick="liffLogout()" style="display:none; color: #d9534f; font-weight: bold;"><i class="fa-solid fa-right-from-bracket"></i> ลงชื่อออก</a>
     </div>
   </div>
 
   <div class="main-container">
+    <div class="pwa-bar pwa-install-entry" id="pwaInstallBar" hidden>
+      เปิดร้านสะดวกจากหน้าจอมือถือ
+      <button type="button" class="pwa-button" id="pwaOpenInstall">ติดตั้ง / ดูวิธีติดตั้ง</button>
+    </div>
+    <p id="pwaUpdateNotice" role="status" hidden></p>
     <div id="status" class="status-msg">กำลังตั้งค่าการเชื่อมต่อ...</div>
     <div id="lineFallbackNotice" class="line-fallback-notice" role="note">
       <span id="lineFallbackMessage">หากติดต่อ <a href="https://line.me/R/ti/p/@908iwiki" target="_blank" rel="noopener noreferrer">LINE OA</a> ไม่ได้ กรุณาติดต่อแอดมินทาง </span>
@@ -346,6 +366,17 @@
     </div>
   </div>
 
+<dialog id="pwaDialog" aria-labelledby="pwaTitle">
+  <h2 id="pwaTitle">ติดตั้งดวงดีล็อตเตอรี่</h2>
+  <p id="pwaInstructions"></p>
+  <p>การซื้อสลาก ชำระเงิน และตรวจยอดต้องใช้อินเทอร์เน็ตเสมอ</p>
+  <p id="pwaStatus" role="status" aria-live="polite"></p>
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    <button type="button" class="pwa-button" id="pwaInstallNow" hidden>ติดตั้ง</button>
+    <button type="button" class="pwa-button" id="pwaCopyLink">คัดลอกลิงก์ร้าน</button>
+    <button type="button" class="pwa-button" id="pwaClose">ปิด</button>
+  </div>
+</dialog>
 <script src="config.js?v=65"></script>
 <script>
   const LINE_OA_CHAT_URL = "https://line.me/R/ti/p/@908iwiki"; 
