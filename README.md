@@ -1,1 +1,1 @@
-# chokdee-lotto
+# doungdee-lotto
